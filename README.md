@@ -4,8 +4,7 @@ AffilGood provides annotated datasets and tools to improve the accuracy of attri
 
 This is the official repository for the paper "AffilGood: Building reliable institution name disambiguation tools to improve scientific literature analysis", published in the Scholarly Document Processing (SDP) 2024 Workshop at ACL 2024 Conference.
 
---figure---
-%![Figure 1](figures/figure1.png)
+![Figure 1](figure1.png)
 
 ## 📖 How to use
 ```python
