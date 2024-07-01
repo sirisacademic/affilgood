@@ -1,0 +1,2 @@
+*.index !text !filter !merge !diff
+*.jsonl !text !filter !merge !diff
