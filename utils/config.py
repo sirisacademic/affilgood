@@ -20,10 +20,10 @@ RUN_MODULES = {
 
 #=========== AffilGoodSpan paths/formats ===========
 
-# Input extension/format ('csv', 'tsv', 'pkl', 'parquet')
+# Input extension/format ('json', 'csv', 'tsv', 'pkl', 'parquet')
 INPUT_FILES_EXTENSION_SPAN = 'tsv'
 
-# Output extension/format ('csv', 'tsv', 'pkl', 'parquet')
+# Output extension/format ('json', 'csv', 'tsv', 'pkl', 'parquet')
 # This is the input format for NER.
 OUTPUT_FILES_EXTENSION_SPAN = 'tsv'
 
@@ -42,7 +42,7 @@ OUTPUT_PATH_SPAN = 'data/output_span'
 # By default the input format of AffilGoodNER is the output format of AffilGoodSpan.
 INPUT_FILES_EXTENSION_NER = OUTPUT_FILES_EXTENSION_SPAN
 
-# Output extension/format ('csv', 'tsv', 'pkl', 'parquet')
+# Output extension/format ('json', 'csv', 'tsv', 'pkl', 'parquet')
 # This is the input format for EL.
 OUTPUT_FILES_EXTENSION_NER = 'tsv'
 
@@ -61,7 +61,7 @@ OUTPUT_PATH_NER = 'data/output_ner'
 # By default the input format of AffilGoodEL is the output format of AffilGoodNER.
 INPUT_FILES_EXTENSION_EL = OUTPUT_FILES_EXTENSION_NER
 
-# Output extension/format ('csv', 'tsv', 'pkl', 'parquet')
+# Output extension/format ('json', 'csv', 'tsv', 'pkl', 'parquet')
 OUTPUT_FILES_EXTENSION_EL = 'tsv'
 
 # Overwrite existing files.
