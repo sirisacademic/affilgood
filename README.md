@@ -20,23 +20,20 @@ Lorem ipsum
 The repository is structured as follows:
 
 ```
-affilgood_pipeline/
+affilgood/
 ├── AffilGoodNER/
 │   ├── config.py
 │   ├── functions.py
-│   ├── __init__.py
 │   └── ner.py
 ├── AffilGoodSpan/
 │   ├── config.py
 │   ├── span.py
-│   ├── functions.py
-│   └── __init__.py
+│   └── functions.py
 ├── AffilGoodEL/
 │   ├── s2aff_el.py
 │   ├── config.py
 │   ├── functions.py
 │   ├── download_s2aff.py
-│   ├── __init__.py
 │   └── S2AFF/
 ├── data/
 │   ├── input_span/
@@ -45,8 +42,7 @@ affilgood_pipeline/
 │   └── output_span/
 ├── utils/
 │   ├── config.py
-│   ├── functions.py
-│   └── __init__.py
+│   └── functions.py
 └── run_pipeline.py
 ```
 
@@ -155,11 +151,14 @@ OUTPUT_PATH_EL = 'data/output_el'
 ## Using component functions independently
 
 The main functionalities of each module can also be imported and used independently in a Python script.
+
 This allows users to integrate specific components of the pipeline into their own workflows.
 
 ### Example: Using AffilGoodSpan
 
-If you have a DataFrame `df` with a column with strings containing affiliation spans, you can use the span identification functionality as follows:
+If you have a DataFrame `df_input` with a column with strings containing affiliation spans, you can use the span identification functionality as follows:
+
+The input and output formats and settings such as `SPAN_MODEL` and `SPAN_DEVICE` are configured in AffilGoodSpan/config.py
 
 1. **Load the Span Pipeline**:
     ```python
@@ -168,7 +167,7 @@ If you have a DataFrame `df` with a column with strings containing affiliation s
 
 2. **Process the DataFrame**:
     ```python
-    df_spans = process_chunk_span(span_pipe, df)
+    df_spans = process_chunk_span(span_pipe, df_input)
     ```
 
 ### Step-by-Step Example
@@ -176,16 +175,14 @@ If you have a DataFrame `df` with a column with strings containing affiliation s
 In the Python command line, it would look like this:
 
 ```python
->>> from utils.config import *
->>> from utils.functions import *
-
+>>> import pandas as pd
 >>> from AffilGoodSpan.config import *
 >>> from AffilGoodSpan.functions import *
->>> import pandas as pd
 
 >>> input_path = 'data/input_span/Test/test.tsv'
->>> df = pd.read_csv(input_path, sep='\\t')
->>> df.head()
+>>> df_input = pd.read_csv(input_path, sep='\t')
+
+>>> df_input.head()
                                             raw_text
 0  Service de Pathologie, Hôpital Henri Mondor, A...
 1  Laboratoire Vibrations Acoustique (LVA), Unive...
@@ -194,20 +191,24 @@ In the Python command line, it would look like this:
 4  Laboratoire J.A. Dieudonné, Université de Nice...
 
 >>> span_pipe = span_pipeline(model_name_path=SPAN_MODEL, device=SPAN_DEVICE)
->>> df_spans = process_chunk_span(span_pipe, df)
+
+>>> df_spans = process_chunk_span(span_pipe, df_input)
 12it [00:00, 61.08it/s]                                                                                                                           
->>> df_spans.head()
-                                            raw_text                             raw_affiliation_string  potential_error_span
-0  Service de Pathologie, Hôpital Henri Mondor, A...  Service de Pathologie, Hôpital Henri Mondor, A...                 False
-1  Laboratoire Vibrations Acoustique (LVA), Unive...  Laboratoire Vibrations Acoustique (LVA), Unive...                 False
-2  AIM, CEA, CNRS, Universitè Paris-Saclay, Unive...  AIM, CEA, CNRS, Universitè Paris-Saclay, Unive...                 False
-3  Sorbonne Université, UPMC Université Paris 6, ...  Sorbonne Université, UPMC Université Paris 6, ...                 False
-4  Laboratoire J.A. Dieudonné, Université de Nice...  Laboratoire J.A. Dieudonné, Université de Nice...                 False
+
+>>> df_spans[['raw_text','raw_affiliation_string']].head()
+                                            raw_text                             raw_affiliation_string
+0  Service de Pathologie, Hôpital Henri Mondor, A...  Service de Pathologie, Hôpital Henri Mondor, A...
+1  Laboratoire Vibrations Acoustique (LVA), Unive...  Laboratoire Vibrations Acoustique (LVA), Unive...
+2  AIM, CEA, CNRS, Universitè Paris-Saclay, Unive...  AIM, CEA, CNRS, Universitè Paris-Saclay, Unive...
+3  Sorbonne Université, UPMC Université Paris 6, ...  Sorbonne Université, UPMC Université Paris 6, ...
+4  Laboratoire J.A. Dieudonné, Université de Nice...  Laboratoire J.A. Dieudonné, Université de Nice...
 ```
 
 ### Example: Using AffilGoodNER
 
 If you have a DataFrame `df_spans` with identified affiliation spans, you can use the NER functionality as follows:
+
+The input and output formats and settings such as `NER_MODEL` and `NER_DEVICE` are configured in AffilGoodNER/config.py
 
 1. **Load the NER Pipeline**:
     ```python
@@ -226,11 +227,12 @@ In the Python command line, it would look like this:
 ```python
 >>> from AffilGoodNER.config import *
 >>> from AffilGoodNER.functions import *
+
 >>> ner_pipe = ner_pipeline(model_name_path=NER_MODEL, device=NER_DEVICE)
+
 >>> df_ner = process_chunk_ner(ner_pipe, df_spans)
 13it [00:00, 463.39it/s]                                                                                                                          
->>> df_ner.columns
-Index(['raw_text', 'raw_affiliation_string', 'ner_entities', 'potential_error_ner'], dtype='object')
+
 >>> df_ner[['raw_affiliation_string','ner_entities']].head()
                               raw_affiliation_string                                       ner_entities
 0  Service de Pathologie, Hôpital Henri Mondor, A...  [{'entity_group': 'SUB', 'score': 0.9998997, '...
@@ -243,6 +245,8 @@ Index(['raw_text', 'raw_affiliation_string', 'ner_entities', 'potential_error_ne
 ### Example: Using AffilGoodEL
 
 If you have a DataFrame `df_ner` with recognized named entities, you can use the entity linking functionality as follows:
+
+The input and output formats and S2AFF settings are configured in AffilGoodEL/config.py
 
 1. **Set up ROR index and re-ranking model for S2AFF**:
     ```python
@@ -260,19 +264,18 @@ If you have a DataFrame `df_ner` with recognized named entities, you can use the
 In the Python command line, it would look like this:
 
 ```python
->>> from AffilGoodEL.config import *
->>> from AffilGoodEL.functions import *
->>> from AffilGoodEL.download_s2aff import download_s2aff_data
+>>> from AffilGoodEL.functions import process_chunk_el
+
 >>> # Make sure that S2AFF_PATH is in the sys.path or add it if necessary.
 >>> from s2aff.ror import RORIndex
 >>> from s2aff.model import PairwiseRORLightGBMReranker
->>> from s2aff.consts import PATHS
+
 >>> ror_index = RORIndex()
 >>> pairwise_model = PairwiseRORLightGBMReranker(ror_index)
+
 >>> df_linked = process_chunk_el(ror_index, pairwise_model, df_ner)
 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [00:03<00:00,  4.28it/s]
->>> df_linked.columns
-Index(['raw_text', 'raw_affiliation_string', 'predicted_label', 'predicted_label_score'], dtype='object')
+
 >>> df_linked[['raw_affiliation_string', 'predicted_label']].head()
                               raw_affiliation_string                                    predicted_label
 0  Service de Pathologie, Hôpital Henri Mondor, A...  Hôpitaux Universitaires Henri-Mondor {https://...
