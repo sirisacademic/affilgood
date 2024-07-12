@@ -158,7 +158,7 @@ This allows users to integrate specific components of the pipeline into their ow
 
 If you have a DataFrame `df_input` with a column with strings containing affiliation spans, you can use the span identification functionality as follows:
 
-The input and output formats and settings such as `SPAN_MODEL` and `SPAN_DEVICE` are configured in AffilGoodSpan/config.py
+The input and output formats and settings such as `SPAN_MODEL` and `SPAN_DEVICE` are configured in `AffilGoodSpan/config.py`.
 
 1. **Load the Span Pipeline**:
     ```python
@@ -208,7 +208,7 @@ In the Python command line, it would look like this:
 
 If you have a DataFrame `df_spans` with identified affiliation spans, you can use the NER functionality as follows:
 
-The input and output formats and settings such as `NER_MODEL` and `NER_DEVICE` are configured in AffilGoodNER/config.py
+The input and output formats and settings such as `NER_MODEL` and `NER_DEVICE` are configured in `AffilGoodNER/config.py`.
 
 1. **Load the NER Pipeline**:
     ```python
@@ -246,7 +246,7 @@ In the Python command line, it would look like this:
 
 If you have a DataFrame `df_ner` with recognized named entities, you can use the entity linking functionality as follows:
 
-The input and output formats and S2AFF settings are configured in AffilGoodEL/config.py
+The input and output formats and S2AFF settings are configured in `AffilGoodEL/config.py`.
 
 1. **Set up ROR index and re-ranking model for S2AFF**:
     ```python
