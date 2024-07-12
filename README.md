@@ -152,6 +152,136 @@ INPUT_PATH_EL = OUTPUT_PATH_NER
 OUTPUT_PATH_EL = 'data/output_el'
 ```
 
+## Using component functions independently
+
+The main functionalities of each module can also be imported and used independently in a Python script.
+This allows users to integrate specific components of the pipeline into their own workflows.
+
+### Example: Using AffilGoodSpan
+
+If you have a DataFrame `df` with a column with strings containing affiliation spans, you can use the span identification functionality as follows:
+
+1. **Load the Span Pipeline**:
+    ```python
+    span_pipe = span_pipeline(model_name_path=SPAN_MODEL, device=SPAN_DEVICE)
+    ```
+
+2. **Process the DataFrame**:
+    ```python
+    df_spans = process_chunk_span(span_pipe, df)
+    ```
+
+### Step-by-Step Example
+
+In the Python command line, it would look like this:
+
+```python
+>>> from utils.config import *
+>>> from utils.functions import *
+
+>>> from AffilGoodSpan.config import *
+>>> from AffilGoodSpan.functions import *
+>>> import pandas as pd
+
+>>> input_path = 'data/input_span/Test/test.tsv'
+>>> df = pd.read_csv(input_path, sep='\\t')
+>>> df.head()
+                                            raw_text
+0  Service de Pathologie, Hôpital Henri Mondor, A...
+1  Laboratoire Vibrations Acoustique (LVA), Unive...
+2  AIM, CEA, CNRS, Universitè Paris-Saclay, Unive...
+3  Sorbonne Université, UPMC Université Paris 6, ...
+4  Laboratoire J.A. Dieudonné, Université de Nice...
+
+>>> span_pipe = span_pipeline(model_name_path=SPAN_MODEL, device=SPAN_DEVICE)
+>>> df_spans = process_chunk_span(span_pipe, df)
+12it [00:00, 61.08it/s]                                                                                                                           
+>>> df_spans.head()
+                                            raw_text                             raw_affiliation_string  potential_error_span
+0  Service de Pathologie, Hôpital Henri Mondor, A...  Service de Pathologie, Hôpital Henri Mondor, A...                 False
+1  Laboratoire Vibrations Acoustique (LVA), Unive...  Laboratoire Vibrations Acoustique (LVA), Unive...                 False
+2  AIM, CEA, CNRS, Universitè Paris-Saclay, Unive...  AIM, CEA, CNRS, Universitè Paris-Saclay, Unive...                 False
+3  Sorbonne Université, UPMC Université Paris 6, ...  Sorbonne Université, UPMC Université Paris 6, ...                 False
+4  Laboratoire J.A. Dieudonné, Université de Nice...  Laboratoire J.A. Dieudonné, Université de Nice...                 False
+```
+
+### Example: Using AffilGoodNER
+
+If you have a DataFrame `df_spans` with identified affiliation spans, you can use the NER functionality as follows:
+
+1. **Load the NER Pipeline**:
+    ```python
+    ner_pipe = ner_pipeline(model_name_path=NER_MODEL, device=NER_DEVICE)
+    ```
+
+2. **Process the DataFrame**:
+    ```python
+    df_ner = process_chunk_ner(ner_pipe, df_spans)
+    ```
+
+### Step-by-Step Example
+
+In the Python command line, it would look like this:
+
+```python
+>>> from AffilGoodNER.config import *
+>>> from AffilGoodNER.functions import *
+>>> ner_pipe = ner_pipeline(model_name_path=NER_MODEL, device=NER_DEVICE)
+>>> df_ner = process_chunk_ner(ner_pipe, df_spans)
+13it [00:00, 463.39it/s]                                                                                                                          
+>>> df_ner.columns
+Index(['raw_text', 'raw_affiliation_string', 'ner_entities', 'potential_error_ner'], dtype='object')
+>>> df_ner[['raw_affiliation_string','ner_entities']].head()
+                              raw_affiliation_string                                       ner_entities
+0  Service de Pathologie, Hôpital Henri Mondor, A...  [{'entity_group': 'SUB', 'score': 0.9998997, '...
+1  Laboratoire Vibrations Acoustique (LVA), Unive...  [{'entity_group': 'SUB', 'score': 0.9989233, '...
+2  AIM, CEA, CNRS, Universitè Paris-Saclay, Unive...  [{'entity_group': 'SUB', 'score': 0.9824879, '...
+3  Sorbonne Université, UPMC Université Paris 6, ...  [{'entity_group': 'ORG', 'score': 0.997733, 'w...
+4  Laboratoire J.A. Dieudonné, Université de Nice...  [{'entity_group': 'SUB', 'score': 0.99989206, ...
+```
+
+### Example: Using AffilGoodEL
+
+If you have a DataFrame `df_ner` with recognized named entities, you can use the entity linking functionality as follows:
+
+1. **Set up ROR index and re-ranking model for S2AFF**:
+    ```python
+    ror_index = RORIndex()
+    pairwise_model = PairwiseRORLightGBMReranker(ror_index)
+    ```
+
+2. **Process the DataFrame**:
+    ```python
+    df_linked = process_chunk_el(ror_index, pairwise_model, df_ner)
+    ```
+
+### Step-by-Step Example
+
+In the Python command line, it would look like this:
+
+```python
+>>> from AffilGoodEL.config import *
+>>> from AffilGoodEL.functions import *
+>>> from AffilGoodEL.download_s2aff import download_s2aff_data
+>>> # Make sure that S2AFF_PATH is in the sys.path or add it if necessary.
+>>> from s2aff.ror import RORIndex
+>>> from s2aff.model import PairwiseRORLightGBMReranker
+>>> from s2aff.consts import PATHS
+>>> ror_index = RORIndex()
+>>> pairwise_model = PairwiseRORLightGBMReranker(ror_index)
+>>> df_linked = process_chunk_el(ror_index, pairwise_model, df_ner)
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 13/13 [00:03<00:00,  4.28it/s]
+>>> df_linked.columns
+Index(['raw_text', 'raw_affiliation_string', 'predicted_label', 'predicted_label_score'], dtype='object')
+>>> df_linked[['raw_affiliation_string', 'predicted_label']].head()
+                              raw_affiliation_string                                    predicted_label
+0  Service de Pathologie, Hôpital Henri Mondor, A...  Hôpitaux Universitaires Henri-Mondor {https://...
+1  Laboratoire Vibrations Acoustique (LVA), Unive...  Université Claude Bernard Lyon 1 {https://ror....
+2  AIM, CEA, CNRS, Universitè Paris-Saclay, Unive...  Centre de Génétique Moléculaire {https://ror.o...
+3  Sorbonne Université, UPMC Université Paris 6, ...  Sorbonne Université {https://ror.org/02en5vm52...
+4  Laboratoire J.A. Dieudonné, Université de Nice...  Centre Hospitalier Universitaire de Nice {http...
+```
+
 ## Dependencies
 
 Ensure you have all necessary dependencies installed. You can install them using the following command:
