@@ -40,7 +40,7 @@ def main():
         print(f'Skipped file {input_file_path} as output file {output_file_path} exists and OVERWRITE_FILES_NER=False.')
       else:
         # Read file in chunks.
-        input_chunks_ner = read_file_chunks(input_file_path, CHUNK_SIZE_NER, COL_FILTER, FILTER_VALUE)
+        input_chunks_ner = read_file_chunks(input_file_path, CHUNK_SIZE_NER, COL_FILTER_NER, FILTER_VALUE_NER)
         if TEST_NER and input_chunks_ner:
           input_chunks_ner = [input_chunks_ner[0].head(10)]
         # Process chunks in parallel if the output file does not already exist

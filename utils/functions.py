@@ -8,14 +8,22 @@ import glob
 import pandas as pd
 import json
 import re
+import numpy as np
 
 def clean_whitespaces(text):
 #---------------------------
   return re.sub(r'\s+', ' ', str(text).strip())
-
+ 
 def read_file(file_path, converters=None):
-#------------------------------------------------------------------------------
-  if file_path.endswith('.csv'):
+#----------------------------------------
+  if file_path.endswith('.json'):
+    try:
+      # If it is a serialized dictionary.
+      df = pd.read_json(file_path, orient='index').fillna('')
+    except AttributeError as e:
+      # If it is a serialized list.
+      df = pd.read_json(file_path).fillna('')
+  elif file_path.endswith('.csv'):
     df = pd.read_csv(file_path, converters=converters).fillna('')
   elif file_path.endswith('.tsv'):
     df = pd.read_csv(file_path, sep='\t', converters=converters).fillna('')
@@ -44,7 +52,9 @@ def write_output(file_path, df, columns=[]):
 #------------------------------------------------------------------------------
   if columns:
     df = df[columns]
-  if file_path.endswith('.csv'):
+  if file_path.endswith('.json'):
+    df.to_json(file_path, orient='index', indent=4)
+  elif file_path.endswith('.csv'):
     df.to_csv(file_path, index=False)
   elif file_path.endswith('.tsv'):
     df.to_csv(file_path, sep='\t', index=False)

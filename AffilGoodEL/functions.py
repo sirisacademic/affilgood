@@ -116,13 +116,18 @@ def ignore_entity(entity):
     or entity[NER_ENTITY_TEXT_FIELD].startswith(IGNORE_NER_ENTITY_PREFIX)
   return ignore
 
-# Find the first entity of a certain type in a list of entities.
-# Used, for instance, to find the first ORG to the right of a SUBORG.
-def get_first_entity(entities, entity_type):
+# Find the first entity of a certain type in a list of entities, starting from a given position.
+# Used, for instance, to find the first ORG to the right or left of a SUBORG.
+def get_first_entity(entities, entity_type, search_right=True):
 #------------------------------------------
-  for pos, entity in enumerate(entities):
-    if entity[NER_ENTITY_TYPE_FIELD] == entity_type and not ignore_entity(entity):
-      return entity, pos
+  if search_right:
+    for pos, entity in enumerate(entities):
+      if entity[NER_ENTITY_TYPE_FIELD] == entity_type and not ignore_entity(entity):
+        return entity, pos
+  else:
+    for pos, entity in enumerate(reversed(entities)):
+      if entity[NER_ENTITY_TYPE_FIELD] == entity_type and not ignore_entity(entity):
+        return entity, len(entities) - pos - 1
   return None, 0
 
 # Generate groupings from the NER output, used to generate candidate affiliations to be linked with S2AFF.
@@ -135,16 +140,17 @@ def get_entity_groupings(entities):
       search_pos = pos+1
       if entity[NER_ENTITY_TYPE_FIELD]==SUBORG_NER_LABEL:
         # If it is a sub-organization, get parent organization -> first ORG found to the right.
-        # If no parent found, the entity is ignored as it is most probably mis-predicted.
-        # (See, for instance, "Univ. Grenoble Alpes, CEA, LITEN, DTS, LSEI, F-38000, Grenoble, France")
-        # Note: It could be the case for French affilations that there are several parents preceeding it.
-        # In general, those are not institutions that are included in ROR (to be confirmed).
-        parent, pos_parent = get_first_entity(entities[search_pos:], MAINORG_NER_LABEL)
+        parent, pos_parent = get_first_entity(entities[search_pos:], MAINORG_NER_LABEL, search_right=True)
         if parent:
           search_pos += pos_parent + 1
+        else:
+          # If no parent found to the right, get the first ORG to the left.
+          parent, pos_parent = get_first_entity(entities[:pos], MAINORG_NER_LABEL, search_right=False)
+        if parent:
           parsed_entity[SUBORG_NER_LABEL] = entity[NER_ENTITY_TEXT_FIELD].strip()
           parsed_entity[MAINORG_NER_LABEL] = parent[NER_ENTITY_TEXT_FIELD].strip()
         else:
+          # If no parent is found we ignore it as it is most likely an error.
           continue
       elif entity[NER_ENTITY_TYPE_FIELD]==MAINORG_NER_LABEL:
         parsed_entity[MAINORG_NER_LABEL] = entity[NER_ENTITY_TEXT_FIELD].strip()
