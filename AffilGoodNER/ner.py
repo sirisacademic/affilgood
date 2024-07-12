@@ -26,11 +26,11 @@ def main():
 
   # Read input data.
   for DATASET in DATASETS:
-    input_path_ner = f'{ROOT_PROJECT}/{OUTPUT_PATH_SPAN}/{DATASET}'
+    input_path_ner = f'{ROOT_PROJECT}/{INPUT_PATH_NER}/{DATASET}'
     output_path_ner = f'{ROOT_PROJECT}/{OUTPUT_PATH_NER}/{DATASET}'
     os.makedirs(output_path_ner, exist_ok=True)
     # Define the pattern to search for files
-    input_file_paths = glob.glob(f'{input_path_ner}/*.{OUTPUT_FILES_EXTENSION_SPAN}')  
+    input_file_paths = glob.glob(f'{input_path_ner}/*.{INPUT_FILES_EXTENSION_NER}')  
     for input_file_path in input_file_paths:
       # Process one input file.
       print(f'Processing file {input_file_path}')
