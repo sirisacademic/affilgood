@@ -52,14 +52,14 @@ def main():
 
   # Read input data.
   for DATASET in DATASETS:
-    output_path_ner = f'{ROOT_PROJECT}/{OUTPUT_PATH_NER}/{DATASET}'
+    input_path_el = f'{ROOT_PROJECT}/{INPUT_PATH_EL}/{DATASET}'
     output_path_el = f'{ROOT_PROJECT}/{OUTPUT_PATH_EL}/{DATASET}'
     os.makedirs(output_path_el, exist_ok=True)
     if SAVE_CHUNKS_EL:
       output_path_chunks_el = f'{output_path_el}/chunks'
       os.makedirs(output_path_chunks_el, exist_ok=True)
     # Define the pattern to search for files
-    input_file_paths = glob.glob(f'{output_path_ner}/*.{OUTPUT_FILES_EXTENSION_NER}')  
+    input_file_paths = glob.glob(f'{input_path_el}/*.{INPUT_FILES_EXTENSION_EL}')  
     for input_file_path in input_file_paths:
       # Process one input file.
       print(f'Processing file {input_file_path}')
