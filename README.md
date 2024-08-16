@@ -11,7 +11,29 @@ Lorem ipsum
 
 ## 📣 Citation
 ```
-@inproceedings{Lorem Ipsum
+@inproceedings{duran-silva-etal-2024-affilgood,
+    title = "{A}ffil{G}ood: Building reliable institution name disambiguation tools to improve scientific literature analysis",
+    author = "Duran-Silva, Nicolau  and
+      Accuosto, Pablo  and
+      Przyby{\l}a, Piotr  and
+      Saggion, Horacio",
+    editor = "Ghosal, Tirthankar  and
+      Singh, Amanpreet  and
+      Waard, Anita  and
+      Mayr, Philipp  and
+      Naik, Aakanksha  and
+      Weller, Orion  and
+      Lee, Yoonjoo  and
+      Shen, Shannon  and
+      Qin, Yanxia",
+    booktitle = "Proceedings of the Fourth Workshop on Scholarly Document Processing (SDP 2024)",
+    month = aug,
+    year = "2024",
+    address = "Bangkok, Thailand",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.sdp-1.13",
+    pages = "135--144",
+    abstract = "The accurate attribution of scientific works to research organizations is hindered by the lack of openly available manually annotated data{--}in particular when multilingual and complex affiliation strings are considered. The AffilGood framework introduced in this paper addresses this gap. We identify three sub-tasks relevant for institution name disambiguation and make available annotated datasets and tools aimed at each of them, including i) a dataset annotated with affiliation spans in noisy automatically-extracted strings; ii) a dataset annotated with named entities for the identification of organizations and their locations; iii) seven datasets annotated with the Research Organization Registry (ROR) identifiers for the evaluation of entity-linking systems. In addition, we describe, evaluate and make available newly developed tools that use these datasets to provide solutions for each of the identified sub-tasks. Our results confirm the value of the developed resources and methods in addressing key challenges in institution name disambiguation.",
 }
 ```
 
