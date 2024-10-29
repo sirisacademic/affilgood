@@ -322,7 +322,7 @@ In the Python command line, it would look like this:
 3  Sorbonne Université, UPMC Université Paris 6, ...  Sorbonne Université {https://ror.org/02en5vm52...
 4  Laboratoire J.A. Dieudonné, Université de Nice...  Centre Hospitalier Universitaire de Nice {http...
 ```
-## Individual models are available at HuggingFace🤗
+## Models are available at HuggingFace🤗
 
 - 🤗 [SIRIS-Lab/affilgood-NER](https://huggingface.co/SIRIS-Lab/affilgood-NER)
 - 🤗 [SIRIS-Lab/affilgood-NER-multilingual](https://huggingface.co/SIRIS-Lab/affilgood-NER-multilingual)
