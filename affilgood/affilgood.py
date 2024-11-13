@@ -7,7 +7,7 @@ from affilgood.metadata_normalization.normalizer import Normalizer
 class AffilGood:
     def __init__(self, span_model_path='nicolauduran45/affilgood-span-v2', ner_model_path='nicolauduran45/affilgood-ner-multilingual-v2', linker_model='default', metadata_normalization=True, device="cpu"):
         self.span_identifier = SpanIdentifier(model_path=span_model_path, device=device)
-        #self.ner = NER(model_path=ner_model_path, device=device)
+        self.ner = NER(model_path=ner_model_path, device=device)
         #self.entity_linker = EntityLinker(model=linker_model, device=device)
         #self.normalizer = Normalizer()
 
