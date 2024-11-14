@@ -84,6 +84,7 @@ class NER:
         for idx, span in enumerate(spans_to_process):
             # Map each output back to the corresponding text_list item and span_entities index
             entities = outputs[idx]
+            entities = [entry for entry in entities if entry['word']]
             if self.fix_predicted_words:
                 entities = self.fix_words(span, entities)
             
@@ -117,8 +118,7 @@ class NER:
             entity["word"] = raw_text[start:end]
         return entities
 
-    # Identify potential errors in entity splitting
-    def clean_and_merge_entities(self,entities, min_score=0.75):
+    def clean_and_merge_entities(self, entities, min_score=0):
         """
         Cleans and merges entities based on score and adjacency criteria.
 
@@ -132,7 +132,7 @@ class NER:
         # Step 1: Filter out entities with score below min_score
         entities = [entity for entity in entities if entity.get("score", 0) >= min_score]
 
-        # Step 2: Merge consecutive entities if they are split and the next starts with lowercase
+        # Step 2: Merge consecutive entities if they are split and the next starts with lowercase or a number
         merged_entities = []
         i = 0
 
@@ -143,10 +143,10 @@ class NER:
             if (i + 1 < len(entities)):
                 next_entity = entities[i + 1]
                 # Conditions for merging:
-                # - Current entity's end matches next entity's start
-                # - Next entity's word starts with a lowercase letter
+                # - Current entity's end matches next entity's start (no space between them)
+                # - Next entity's word starts with a lowercase letter or a number
                 if (current_entity['end'] == next_entity['start'] and 
-                    next_entity['word'][0].islower()):
+                    (next_entity['word'][0].islower() or next_entity['word'][0].isdigit())):
                     # Merge words and adjust end position
                     merged_word = current_entity['word'] + next_entity['word']
                     merged_entity = {
@@ -160,7 +160,7 @@ class NER:
                     i += 2  # Skip the next entity as it is now merged
                     continue
 
-            # If no merging, add the current entity as is
+            # If no merging is needed, add the current entity as is
             merged_entities.append(current_entity)
             i += 1
 
