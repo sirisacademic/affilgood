@@ -8,6 +8,7 @@ from datasets import Dataset
 from transformers.pipelines.pt_utils import KeyDataset
 from tqdm import tqdm
 import re
+import numpy as np
 
 def clean_whitespaces(text):
 #---------------------------
@@ -51,6 +52,7 @@ class NER:
         self.fix_predicted_words = fix_predicted_words
         self.title_case = title_case
 
+
     def recognize_entities(self, text_list):
         """
         Process a list of text data for span identification.
@@ -79,7 +81,7 @@ class NER:
         outputs = list(tqdm(self.model(KeyDataset(Dataset.from_dict({"text": spans_to_process}), "text"), batch_size=self.batch_size)))
 
         # Initialize the results structure for each item in text_list
-        results = [{"raw_text": item["raw_text"], "span_entities": item["span_entities"], "ner": []} for item in text_list]
+        results = [{"raw_text": item["raw_text"], "span_entities": item["span_entities"], "ner": [], "ner_raw": []} for item in text_list]
 
         for idx, span in enumerate(spans_to_process):
             # Map each output back to the corresponding text_list item and span_entities index
@@ -89,7 +91,8 @@ class NER:
                 entities = self.fix_words(span, entities)
             
             # Clean and merge spans
-            cleaned_entities = self.clean_and_merge_entities(entities)
+            cleaned_entities = self.combine_entities(entities)
+            cleaned_entities = self.clean_and_merge_entities(cleaned_entities)
 
             # Organize ner_entities by entity_group
             ner_entities = {}
@@ -106,6 +109,10 @@ class NER:
             if len(results[item_idx]["ner"]) <= span_idx:
                 results[item_idx]["ner"].append({})
             results[item_idx]["ner"][span_idx] = ner_entities
+
+            if len(results[item_idx]["ner_raw"]) <= span_idx:
+                results[item_idx]["ner_raw"].append({})
+            results[item_idx]["ner_raw"][span_idx] = cleaned_entities#ner_entities
 
         return results
     
@@ -165,3 +172,42 @@ class NER:
             i += 1
 
         return merged_entities
+    
+    def combine_entities(self, entities):
+        try:
+            combined_entities = []
+            i = 0
+
+            while i < len(entities):
+                current_entity = entities[i]
+
+                # Check if we can merge with the next entity
+                if i < len(entities) - 1:
+                    next_entity = entities[i + 1]
+
+                    # Conditions to combine entities:
+                    if (current_entity['word'][-1].islower() and
+                        next_entity['word'][0].islower()):
+
+                        # Merge the text, adjust the end position, and take the average score
+                        merged_entity = {
+                            'start': current_entity['start'],
+                            'end': next_entity['end'],
+                            'entity_group': next_entity['entity_group'],
+                            'score': (current_entity['score'] + next_entity['score']) / 2,
+                            'word': current_entity['word'] + next_entity['word']
+                        }
+
+                        # Add the merged entity to the list
+                        combined_entities.append(merged_entity)
+                        # Skip the next entity since it's merged
+                        i += 2
+                        continue
+
+                # If no merge occurred, add the current entity as-is
+                combined_entities.append(current_entity)
+                i += 1
+
+            return np.array(combined_entities, dtype=object)
+        except:
+            return entities

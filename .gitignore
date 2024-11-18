@@ -70,3 +70,5 @@ __pycache__
 
 # node stuff
 package-lock.json
+affilgood/entity_linking/data/*
+affilgood/entity_linking/data
