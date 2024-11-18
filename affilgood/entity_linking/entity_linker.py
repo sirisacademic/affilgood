@@ -15,22 +15,6 @@ from io import BytesIO
 from botocore import UNSIGNED
 from botocore.config import Config
 
-from AffilGoodEL.config import *
-from AffilGoodNER.config import *
-from utils.functions import *
-
-S2AFF_ABS_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), S2AFF_PATH))
-sys.path.insert(0, S2AFF_ABS_PATH)
-from s2aff.consts import PATHS
-# Make sure that S2AFF_PATH is in the sys.path or add it if necessary.
-from s2aff.ror import RORIndex
-from s2aff.model import PairwiseRORLightGBMReranker
-#ror_index = RORIndex()
-# df_linked = process_chunk_el(ror_index, pairwise_model, df_ner)
-from IPython.display import clear_output
-import numpy as np
-from concurrent.futures import ThreadPoolExecutor
-
 # Whether to process a few for testing.
 TEST_EL = False
 # S2AFF root path relative to AffilGoodEL
@@ -83,6 +67,18 @@ NER_ENTITY_END_FIELD = 'end'
 MIN_LENGTH_NER_ENTITY = 2
 IGNORE_NER_ENTITY_PREFIX = '##'
 COL_NER_ENTITIES = 'ner_raw'
+
+S2AFF_ABS_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), S2AFF_PATH))
+sys.path.insert(0, S2AFF_ABS_PATH)
+from s2aff.consts import PATHS
+# Make sure that S2AFF_PATH is in the sys.path or add it if necessary.
+from s2aff.ror import RORIndex
+from s2aff.model import PairwiseRORLightGBMReranker
+#ror_index = RORIndex()
+# df_linked = process_chunk_el(ror_index, pairwise_model, df_ner)
+from IPython.display import clear_output
+import numpy as np
+from concurrent.futures import ThreadPoolExecutor
 
 class EntityLinker:
     def __init__(self, method = ['S2AFF','LLM','ElasticSearch'], device="cpu"):
@@ -357,13 +353,10 @@ class EntityLinker:
                 # Add processed item to the list
                 processed_list.append(result)
             
-            print(chunk[0])
             results = [{"raw_text": item["raw_text"], "span_entities": item["span_entities"], "ner": item['ner'], "osm": item['osm'],"ror":[]} for item in chunk]
 
             for idx, ner in enumerate(chunk_to_process):
                 # Map each output back to the corresponding text_list item and span_entities index
-                print(idx)
-                print(processed_list[idx])
                 entities = processed_list[idx]
 
                 # Append ner entities for the current span to the correct entry in results
@@ -371,7 +364,7 @@ class EntityLinker:
                 # Ensure that each item in "ner" corresponds to each span in "span_entities"
                 if len(results[item_idx]["ror"]) <= ror_idx:
                     results[item_idx]["ror"].append({})
-                results[item_idx]["ror"][ror_idx] = entities
+                results[item_idx]["ror"][ror_idx] = entities[COL_PREDICTIONS_EL]
 
             return results
 
