@@ -12,8 +12,8 @@ class AffilGood:
         self.ner = NER(model_path=ner_model_path, device=device)
         self.entity_linker = EntityLinker(method='S2AFF', device=device)
         self.normalizer = GeoNormalizer()
-        self.ror_index = RORIndex('affilgood/entity_linking/v1.55-2024-10-31-ror-data.json')
-        self.pairwise_model = PairwiseRORLightGBMReranker(self.ror_index, model_path = 'affilgood/entity_linking/lightgbm_model.booster',kenlm_model_path = 'affilgood/entity_linking/raw_affiliations_lowercased.binary' )
+        self.ror_index = RORIndex('affilgood/entity_linking/data/v1.55-2024-10-31-ror-data.json')
+        self.pairwise_model = PairwiseRORLightGBMReranker(self.ror_index, model_path = 'affilgood/entity_linking/data/lightgbm_model.booster',kenlm_model_path = 'affilgood/entity_linking/data/raw_affiliations_lowercased.binary' )
 
     def process(self, text):
         """Executes all steps: span identification, NER, entity linking, and normalization."""
