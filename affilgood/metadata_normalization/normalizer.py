@@ -300,7 +300,7 @@ class GeoNormalizer:
         # create search strings
 
         # Initialize the results structure for each item in text_list
-        results = [{"raw_text": item["raw_text"], "span_entities": item["span_entities"], "ner": item["ner"], "osm":[]} for item in text_list]
+        results = [{"raw_text": item["raw_text"], "span_entities": item["span_entities"], "ner": item["ner"],"ner_raw": item["ner_raw"], "osm":[]} for item in text_list]
 
         for idx, ner in enumerate(ner_to_process):
             # Map each output back to the corresponding text_list item and span_entities index
