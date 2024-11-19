@@ -32,23 +32,11 @@ affilgood/
 ```python
 from affilgood import AffilGood
 
-# Instantiate the AffilGood class with required configurations
-affilgood = AffilGood(
-    span_model_path="path/to/span/model",
-    ner_model_path="path/to/ner/model",
-    linker_model="path/to/linker/model",
-    normalization_rules={"rule1": "value1"},  # Example normalization rules
-    device="cuda"
-)
+my_affilgood = AffilGood()
 
-# Run the full pipeline
-result = affilgood.process("Sample input string or list of affiliation texts")
-
-# Run individual steps if needed
-spans = affilgood.get_span("Sample input string")
-entities = affilgood.get_ner(spans)
-linked_entities = affilgood.get_entity_linking(entities)
-normalized_data = affilgood.get_normalization(linked_entities)
+text = 'Granges Terragrisa SL, Paratge de La Gleva, Camí de Burrissola s/n, E-08508 Les Masies de Voltregà (Barcelona), Catalonia, Spain
+# Process examples
+my_affilgood.process(text)
 ```
 
 ## 🤗 Models are available at HuggingFace
