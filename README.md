@@ -34,7 +34,8 @@ from affilgood import AffilGood
 
 my_affilgood = AffilGood()
 
-text = 'Granges Terragrisa SL, Paratge de La Gleva, Camí de Burrissola s/n, E-08508 Les Masies de Voltregà (Barcelona), Catalonia, Spain
+text = ['Granges Terragrisa SL, Paratge de La Gleva, Camí de Burrissola s/n, E-08508 Les Masies de Voltregà (Barcelona), Catalonia, Spain',
+'Treuman Katz Center for Pediatric Bioethics and Palliative Care, Center of Clinical and Translational Research, Seattle Children's Research Institute, 1900 Ninth Ave., MS: JMB-6, Seattle, WA, USA 98101; Division of Bioethics and Palliative Care, Department of Pediatrics, University of Washington School of Medicine, M/S MB.5.605, PO Box 5371, Seattle, WA 98105, USA; Department of Bioethics and Decision Sciences, Geisinger College of Health Sciences, Danville, PA 17044, USA. Electronic address: skraft1@geisinger.edu.']
 # Process examples
 my_affilgood.process(text)
 ```
