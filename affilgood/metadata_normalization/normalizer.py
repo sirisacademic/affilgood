@@ -8,7 +8,6 @@ import country_converter as coco
 import logging
 import time
 from geopy.geocoders import Nominatim
-from tqdm.notebook import tqdm
 
 SUPPORTED_LANGUAGES = [
     'af', 'am', 'ar', 'as', 'az', 'ba', 'bg', 'bho', 'bn', 'bo', 'brx', 'bs', 'ca', 'cs', 'cy', 'da', 'de', 'doi', 
@@ -29,38 +28,59 @@ class GeoNormalizer:
     def __init__(self, cache_fname='affilgood/metadata_normalization/cache.csv'):
         self.country_to_iso_mapping, self.country_codes = self.load_country_mappings()
         self.convert_cache = {}
+        self.trans_cache = {}
         self.cache_fname = 'affilgood/metadata_normalization/cache.csv'
         self.cache = self.load_cache(cache_fname)
         self.app = Nominatim(user_agent="siris_app")
         coco_logger = coco.logging.getLogger()
         coco_logger.setLevel(logging.CRITICAL)
-
+   
     def load_country_mappings(self):
         """
-        Load mappings from a CSV file into a dictionary.
+        Load mappings and country codes from available CSV/TSV files.
         """
         mappings = {}
+        country_codes = {}
         try:
-            with open('affilgood/metadata_normalization/openrefine-countries-normalized.csv', newline='') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    iso_alpha_3 = row["ISO 3166-1 alpha-3 code"]
-                    iso_alpha_2 = row.get("ISO 3166-1 alpha-2 code", "")
-                    country_original = row["country_original"]
-                    country_official = row["COUNTRY"]
-                    mappings.update({
-                        iso_alpha_3: country_official,
-                        iso_alpha_2: country_official,
-                        country_original: country_official,
-                        country_official: country_official,
-                    })
-
-            with open("affilgood/metadata_normalization/country_data.tsv", 'r') as file:
-                reader = csv.DictReader(file, delimiter='\t')
-                country_codes = {row["name_short"]:row["ISO3"] for row in reader}
-
-        except FileNotFoundError:
-            logging.error("Country normalization data file not found.")
+            # Load mappings from `openrefine-countries-normalized.csv` if it exists.
+            if os.path.exists('affilgood/metadata_normalization/openrefine-countries-normalized.csv'):
+                with open('affilgood/metadata_normalization/openrefine-countries-normalized.csv', newline='') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        iso_alpha_3 = row["ISO 3166-1 alpha-3 code"]
+                        iso_alpha_2 = row.get("ISO 3166-1 alpha-2 code", "")
+                        country_original = row["country_original"]
+                        country_official = row["COUNTRY"]
+                        # Populate mappings from this file.
+                        mappings.update({
+                            iso_alpha_3: country_official,
+                            iso_alpha_2: country_official,
+                            country_original: country_official,
+                            country_official: country_official,
+                        })
+            else:
+                logging.warning("File `openrefine-countries-normalized.csv` not found. Using `country_data.tsv` for mappings.")
+            # Load `country_data.tsv` to ensure mappings and country codes.
+            if os.path.exists("affilgood/metadata_normalization/country_data.tsv"):
+                with open("affilgood/metadata_normalization/country_data.tsv", 'r') as file:
+                    reader = csv.DictReader(file, delimiter='\t')
+                    for row in reader:
+                        name_short = row["name_short"]
+                        iso_alpha_3 = row["ISO3"]
+                        iso_alpha_2 = row.get("ISO2", "")
+                        name_official = row["name_official"]
+                        # Populate mappings only if the key is not already present
+                        mappings.setdefault(name_short, name_official)
+                        mappings.setdefault(name_official, name_official)
+                        mappings.setdefault(iso_alpha_3, name_official)
+                        mappings.setdefault(iso_alpha_2, name_official)
+                        # Populate country_codes.
+                        if name_short not in country_codes:
+                            country_codes[name_short] = iso_alpha_3
+            else:
+                raise FileNotFoundError("File `country_data.tsv` not found. Cannot load country mappings or country codes.")
+        except FileNotFoundError as e:
+            logging.error(f"Country normalization data file not found: {e}")
             raise
         return mappings, country_codes
 
@@ -72,20 +92,56 @@ class GeoNormalizer:
         search_str = ', '.join([re.sub(r'[\!\(\)\-\[\]\{\}\;\:\'\"\\\,\<\>\.\/\?\@\#\$\%\^\&\*\_\~\·]+', '', x).strip() for x in search_str.split(',') if not x.isspace() and x != ''])
         return search_str
 
-    def trans_country(self, x):
+    def trans_country(self, country_name):
         """
-        Translates country names.
+        Translates country names from their original language to English.
+        Uses a cache to avoid repeated translations of the same text.
+        
+        Parameters:
+        - country_name (str): Country name to translate
+        
+        Returns:
+        - str: Translated country name or original string if translation not needed/possible
         """
-        if type(x) == str and len(x) > 2:
-
-            or_lang = detect(x.title())
-            if or_lang != "EN":
-                if or_lang in SUPPORTED_LANGUAGES:
-                    return ts.translate_text(x, from_language=or_lang, to_language="en") # , translator='argos'
-                else:
-                    return ts.translate_text(x, or_lang= "en", target_lang="EN") # , translator='argos'
-            else:
-                return x
+        # Return early if input is not a suitable string
+        if not isinstance(country_name, str) or len(country_name) <= 2:
+            return country_name
+        
+        # Check if we already have this translation in cache
+        if country_name in self.trans_cache:
+            return self.trans_cache[country_name]
+        
+        try:
+            # Detect language
+            original_language = detect(country_name.title())
+            
+            # Only translate if not already in English
+            if original_language.lower() != "en":
+                try:
+                    if original_language in SUPPORTED_LANGUAGES:
+                        # Use detected language for translation
+                        translated_text = ts.translate_text(country_name, from_language=original_language, to_language="en")
+                    else:
+                        # If language not supported, try auto-detection
+                        translated_text = ts.translate_text(country_name, to_language="en")
+                    
+                    # Store in cache and return
+                    self.cache[country_name] = translated_text
+                    return translated_text
+                except Exception as e:
+                    # Log translation error and return original
+                    print(f"Translation error for '{country_name}': {str(e)}")
+                    self.trans_cache[country_name] = country_name  # Cache the original to avoid retrying failed translations
+                    return country_name
+            
+            # English text doesn't need translation
+            self.trans_cache[country_name] = country_name
+            return country_name
+        except Exception as e:
+            # Log language detection error and return original
+            print(f"Language detection error for '{country_name}': {str(e)}")
+            self.trans_cache[country_name] = country_name  # Cache the original to avoid retrying failed detections
+            return country_name
 
     def convert(self,country):
         """
@@ -95,11 +151,15 @@ class GeoNormalizer:
         if country in self.convert_cache:
             return self.convert_cache[country]
 
-        translated_country = self.trans_country(country)
-        converted_country = coco.convert(names=translated_country, to='name_short')
-        result = country if converted_country == "not found" or not isinstance(converted_country, str) else converted_country
-
+        if country:
+            translated_country = self.trans_country(country)
+            converted_country = coco.convert(names=translated_country, to='name_short')
+            result = country if converted_country == "not found" or not isinstance(converted_country, str) else converted_country
+        else:
+            result = ""
+            
         self.convert_cache[country] = result
+
         return result
 
     def normalize_country(self, countries):
@@ -112,9 +172,8 @@ class GeoNormalizer:
         Returns:
         - list of tuple: List of tuples where each tuple contains the normalized country name and ISO code.
         """
-        # Return None if the input is None
-        if countries is None:
-            return None
+        if countries is None or len(countries) == 0:
+            return []
 
         normalized_results = []
         
@@ -134,8 +193,45 @@ class GeoNormalizer:
         
         return normalized_results
     
-    def create_search_string(self,entities):
+    def create_search_string(self, entities):
         """
+        Creates an OSM search string for an affiliation.       
+        Parameters:
+        - entities (dict): Dictionary with keys such as 'CITY', 'REGION', and 'COUNTRY' - or 'ORG'.
+        
+        Returns:
+        - str: A formatted search string based on available location data, or None if insufficient data.
+        """
+        # Extract values from the dictionary, using the first element if available
+        org = entities.get("ORG", [None])[0] if entities.get("ORG") else ""
+        city = entities.get("CITY", [None])[0] if entities.get("CITY") else ""
+        country = entities.get("COUNTRY", [None])[0] if entities.get("COUNTRY") else ""
+        region = entities.get("REGION", [None])[0] if entities.get("REGION") else ""
+
+        # If we have a city, use it as the primary search component
+        if city:
+            search_parts = [city]
+            if region:
+                search_parts.append(region)
+            if country:
+                search_parts.append(country)
+        # If no city but we have region, use region as primary search component
+        elif region:
+            search_parts = [region]
+            if country:
+                search_parts.append(country)
+        # If only country, decide if we want to use it (could be too broad)
+        elif country:
+            search_parts = [country]
+        else:
+            # No location information available
+            return None
+
+        return self.clean_string(", ".join(search_parts)).replace(', ,',',')
+    
+    """
+    def create_search_string(self,entities):
+        '''
         Creates an OSM search string for an affiliation based on city, region, and country information.
         Extracts values from a dictionary with keys like 'CITY', 'REGION', and 'COUNTRY'.
         
@@ -144,7 +240,7 @@ class GeoNormalizer:
         
         Returns:
         - str: A formatted search string based on available location data.
-        """
+        '''
         # Extract values from the dictionary, using the first element if available
         city = entities.get("CITY", [None])[0]
         country = entities.get("COUNTRY", [None])[0]
@@ -162,6 +258,7 @@ class GeoNormalizer:
             search_parts.append(country)
     
         return self.clean_string(", ".join(search_parts)).replace(', ,',',')
+    """
     
     def load_cache(self,fname):
         if os.path.isfile(fname):
@@ -224,33 +321,25 @@ class GeoNormalizer:
         else:
             return (search_string, None, None, None, None, None, None, None, None, None)
 
-        
     def get_cached_and_new_searches(self, search_queries):
-
-        # read cacha here again
+        # read cache here again
         self.cache = self.load_cache(self.cache_fname)
 
         cached_results_list = [self.cache[k] for k in search_queries if k in self.cache]
-        # cached_results = pd.DataFrame(cached_results_list, columns=["search_string",
-        #                                                         "osm_city",
-        #                                                         "osm_state_district",
-        #                                                         "osm_county",
-        #                                                         "osm_province",
-        #                                                         "osm_state",
-        #                                                         "osm_region",
-        #                                                         "osm_country",
-        #                                                         "osm_lat_long",
-        #                                                         "osm_id"])
         new_searches = list({k for k in search_queries if k is not None and k not in self.cache})
 
         new_results = []
-        for query in tqdm(new_searches, desc='Processing new queries of OSM'):
+        for query in new_searches:
             try:
                 time.sleep(1)
                 res = self.get_geocoding_ents(query, self.app)
                 new_results.append(res)
-            except:
-                pass
+            except Exception as e:
+                # Add error handling for failed geocoding
+                print(f"Failed to geocode '{query}': {str(e)}")
+                # Add a placeholder result for the failed query
+                new_results.append((query, None, None, None, None, None, None, None, None, None))
+                
         results = cached_results_list+new_results
 
         # add to cache
@@ -261,6 +350,7 @@ class GeoNormalizer:
             writer.writerows(new_results)
 
         return results
+
     
     def transform_osm_results_to_metadata(self, result):
         # Corresponding keys
@@ -318,8 +408,24 @@ class GeoNormalizer:
 
         osm_results = self.get_cached_and_new_searches(search_queries)
 
-        osm_dict = {item[0]: list(item[1:]) for item in osm_results}
-        osm_entity_results = [self.transform_osm_results_to_metadata(osm_dict[query]) if query is not None else None for query in search_queries]
+        osm_dict = {item[0]: list(item[1:]) for item in osm_results if item[0] is not None}
+        osm_entity_results = []
+
+        for query in search_queries:
+            if query is None:
+                osm_entity_results.append(None)
+            else:
+                try:
+                    if query in osm_dict:
+                        result = osm_dict[query]
+                        osm_entity_results.append(self.transform_osm_results_to_metadata(result))
+                    else:
+                        # Handle missing queries
+                        print(f"Warning: No OSM result found for query '{query}'")
+                        osm_entity_results.append(None)
+                except Exception as e:
+                    print(f"Error processing OSM result for query '{query}': {str(e)}")
+                    osm_entity_results.append(None)
 
         for idx, ner in enumerate(ner_to_process):
             # Map each output back to the corresponding text_list item and span_entities index

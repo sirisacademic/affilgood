@@ -1,3 +1,4 @@
+# File affilgood/entity_linking/S2AFF/s2aff/model.py
 import os
 import torch
 
@@ -15,7 +16,7 @@ from simpletransformers.ner import NERModel, NERArgs
 from blingfire import text_to_words
 from s2aff.consts import PATHS
 from s2aff.text import fix_text, CERTAINLY_MAIN
-
+from urllib.request import urlretrieve
 
 FEATURE_NAMES = list(FEATURE_NAMES)
 
@@ -289,6 +290,16 @@ class PairwiseRORLightGBMReranker:
     def __init__(
         self, ror_index, model_path=PATHS["lightgbm_model"], kenlm_model_path=PATHS["kenlm_model"], num_threads=0
     ):
+        # Ensure LightGBM model file exists
+        model_path = self._ensure_local_file(model_path)
+        # Ensure KenLM model file exists
+        kenlm_model_path = self._ensure_local_file(kenlm_model_path)
+ 
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"LightGBM model file not found: {model_path}")
+        if not os.path.exists(kenlm_model_path):
+            raise FileNotFoundError(f"KenLM model file not found: {kenlm_model_path}")
+        
         self.ror_index = ror_index
         self.model_path = model_path
         self.kenlm_model_path = kenlm_model_path
@@ -302,6 +313,23 @@ class PairwiseRORLightGBMReranker:
         ]
         self.city_ind = FEATURE_NAMES.index("city_frac_of_query_matched_in_text")
         self.num_threads = num_threads
+
+    @staticmethod
+    def _ensure_local_file(file_path):
+        """
+        Ensure the file exists locally. If the path is a URL, download it to the local directory.
+        """
+        if file_path.startswith("http://") or file_path.startswith("https://"):
+            # Extract file name from URL
+            local_path = os.path.join("data", os.path.basename(file_path))
+            if not os.path.exists(local_path):
+                print(f"Downloading {file_path} to {local_path}. This may take some time...")
+                os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                urlretrieve(file_path, local_path)
+            return local_path
+        elif not os.path.exists(file_path):
+            raise FileNotFoundError(f"Local file not found: {file_path}")
+        return file_path
 
     def load_model(self, model_path=PATHS["lightgbm_model"]):
         """Load a model from disk.
