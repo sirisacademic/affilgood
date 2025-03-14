@@ -5,7 +5,9 @@ import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 
-from .config import *
+# Substring of URLs to omit when downloading S2AFF data
+OMIT_S2AFF = ['ner_model', 'training', 'ror-data.json']
+S2AFF_PATH = '.'
 
 #----------------- FUNCTIONS ------------------
 

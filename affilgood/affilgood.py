@@ -1,25 +1,88 @@
-# affilgood.py
-from affilgood.span_identification.span_identifier import SpanIdentifier
+import torch
 from affilgood.ner.ner import NER
 from affilgood.entity_linking.entity_linker import EntityLinker
 from affilgood.metadata_normalization.normalizer import GeoNormalizer
-from affilgood.entity_linking.S2AFF.s2aff.ror import RORIndex
-from affilgood.entity_linking.S2AFF.s2aff.model import PairwiseRORLightGBMReranker
+
+DEFAULT_SPAN_MODEL = 'nicolauduran45/affilgood-span-v2'
+DEFAULT_NER_MODEL = 'nicolauduran45/affilgood-ner-multilingual-v2'
+DEFAULT_ENTITY_LINKERS = 'Whoosh'
 
 class AffilGood:
-    def __init__(self, span_model_path='nicolauduran45/affilgood-span-v2', ner_model_path='nicolauduran45/affilgood-ner-multilingual-v2', linker_model='default', metadata_normalization=True, device="cpu"):
-        self.span_identifier = SpanIdentifier(model_path=span_model_path, device=device)
-        self.ner = NER(model_path=ner_model_path, device=device)
-        self.entity_linker = EntityLinker(method='S2AFF', device=device)
-        self.normalizer = GeoNormalizer()
-        self.ror_index = RORIndex('affilgood/entity_linking/data/v1.55-2024-10-31-ror-data.json')
-        self.pairwise_model = PairwiseRORLightGBMReranker(self.ror_index, model_path = 'affilgood/entity_linking/data/lightgbm_model.booster',kenlm_model_path = 'affilgood/entity_linking/data/raw_affiliations_lowercased.binary' )
 
+    def __init__(self, 
+                 span_separator='',  
+                 span_model_path=None, 
+                 ner_model_path=None, 
+                 entity_linkers=None,
+                 return_scores=False,
+                 metadata_normalization=True, 
+                 verbose=False,
+                 device=None):
+        
+        # Verbose?
+        self.verbose = verbose
+        
+        # Auto-detect device if not specified
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        # Initialize span identifier           
+        if span_separator and type(span_separator)==str and len(span_separator)==1:
+            if self.verbose:
+                print(f'Initializing simple span separator by character: {span_separator}')
+            from affilgood.span_identification.simple_span_identifier import SimpleSpanIdentifier
+            self.span_identifier = SimpleSpanIdentifier(separator=span_separator)
+        else:
+            if span_model_path == "noop":
+                if self.verbose:
+                    print(f'Span identification is disabled')
+                from affilgood.span_identification.noop_span_identifier import NoopSpanIdentifier
+                self.span_identifier = NoopSpanIdentifier()
+            else:
+                from affilgood.span_identification.span_identifier import SpanIdentifier
+                span_model_path = span_model_path if span_model_path else DEFAULT_SPAN_MODEL
+                if self.verbose:
+                    print(f'Initializing span identifier: {span_model_path}')
+                self.span_identifier = SpanIdentifier(model_path=span_model_path, device=device)
+        
+        # Initialize NER model
+        ner_model_path = ner_model_path if ner_model_path else DEFAULT_NER_MODEL
+        if self.verbose:
+            print(f'Initializing NER: {ner_model_path}')
+        self.ner = NER(model_path=ner_model_path, device=device)
+        
+        # Initialize entity linker with the provided linkers
+        entity_linkers = entity_linkers if entity_linkers else DEFAULT_ENTITY_LINKERS
+        # Handle the case where entity_linkers is a single string or object.
+        if type(entity_linkers) != list:
+            entity_linkers = [entity_linkers]
+        if self.verbose:
+            print(f'Initializing entity linkers: {entity_linkers}')
+        self.entity_linker = EntityLinker(linkers=entity_linkers, return_scores=return_scores)
+        
+        # Initialize normalizer
+        normalizer = GeoNormalizer() if metadata_normalization else None
+        if normalizer:
+            if self.verbose:
+                print(f'Initializing normalizer: {normalizer}')
+            self.normalizer = normalizer
+        else:
+            print(f'Normalizer is disabled')
+
+    # Rest of the methods remain the same
     def process(self, text):
         """Executes all steps: span identification, NER, entity linking, and normalization."""
+        if self.verbose:
+            print('Executing span identification')
         spans = self.get_span(text)
+        if self.verbose:
+            print('Executing NER')
         entities = self.get_ner(spans)
+        if self.verbose:
+            print('Normalizing data')
         normalized_data = self.get_normalization(entities)
+        if self.verbose:
+            print('Executing entity linking')
         linked_entities = self.get_entity_linking(normalized_data)
         return linked_entities
 
@@ -33,12 +96,10 @@ class AffilGood:
 
     def get_entity_linking(self, entities):
         """Links recognized entities to identifiers."""
-        return self.entity_linker.process_chunk_el(entities,self.ror_index, self.pairwise_model)
+        return self.entity_linker.process_in_chunks(entities)
 
     def get_normalization(self, entities):
         """Normalizes the linked entity metadata."""
         return self.normalizer.normalize(entities)
-    
-    def normalize_country(self, country):
-        """Normalizes the linked entity metadata."""
-        return self.normalizer.normalize_country(country)
+        
+        
