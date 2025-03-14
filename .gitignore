@@ -72,7 +72,7 @@ __pycache__
 package-lock.json
 
 # S2AFF data
-affilgood/entity_linking/data
+affilgood/entity_linking/S2AFF/data
 
 # Ignore all files and directories containing BKP or bkp in their names
 *BKP*
