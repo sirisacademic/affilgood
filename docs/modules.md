@@ -1,4 +1,4 @@
-# AffilGood API Documentation
+# AffilGood Modules
 
 This document provides detailed information about the AffilGood library's major components, their configuration options, and usage examples.
 
@@ -8,8 +8,9 @@ This document provides detailed information about the AffilGood library's major 
 2. [Span Identification](#span-identification)
 3. [Named Entity Recognition](#named-entity-recognition)
 4. [Entity Linking](#entity-linking)
-5. [Metadata Normalization](#metadata-normalization)
-6. [Data Structures](#data-structures)
+
+6. [Metadata Normalization](#metadata-normalization)
+7. [Data Structures](#data-structures)
 
 ## Main AffilGood Class
 
@@ -177,7 +178,7 @@ The NER model identifies the following entity types:
 
 ## Entity Linking
 
-AffilGood supports multiple entity linking strategies, orchestrated by the `EntityLinker` class.
+AffilGood supports multiple entity linking strategies, orchestrated by the `EntityLinker` class. For detailed information about the entity linking architecture and how to extend it with custom implementations, see the [Entity Linking Module: Architecture and Extension Guide](entity-linking-extension.md).
 
 ```python
 from affilgood.entity_linking.entity_linker import EntityLinker
