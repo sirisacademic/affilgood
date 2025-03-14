@@ -6,7 +6,6 @@ import pandas as pd
 from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
 from datasets import Dataset
 from transformers.pipelines.pt_utils import KeyDataset
-from tqdm import tqdm
 import re
 
 def clean_whitespaces(text):
@@ -61,6 +60,10 @@ class SpanIdentifier:
         Returns:
         - List of dicts: Each dict contains the original text, a list of identified spans, and a list of potential errors.
         """
+        # Handle the case where text_list is a string
+        if isinstance(text_list, str):
+            text_list = [text_list]
+            
         # Clean and optionally apply title case to each text entry
         text_list = [clean_whitespaces(text) for text in text_list]
         if self.title_case:
@@ -68,7 +71,7 @@ class SpanIdentifier:
 
         # Run the span identification model
         outputs = []
-        for out in tqdm(self.model(KeyDataset(Dataset.from_dict({"text": text_list}), "text"), batch_size=self.batch_size)):
+        for out in self.model(KeyDataset(Dataset.from_dict({"text": text_list}), "text"), batch_size=self.batch_size):
             outputs.append(out)
 
         # Process results

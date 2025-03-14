@@ -3,15 +3,14 @@ import sys
 import os
 import json
 import pandas as pd
-from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
+from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline, logging as transformers_logging
 from datasets import Dataset
 from transformers.pipelines.pt_utils import KeyDataset
-from tqdm import tqdm
+from transformers.utils.logging import disable_progress_bar
 import re
 import numpy as np
 
 def clean_whitespaces(text):
-#---------------------------
   return re.sub(r'\s+', ' ', str(text).strip())
 
 class NER:
@@ -25,15 +24,13 @@ class NER:
         #threshold_score=0.75,
         fix_predicted_words=True,
         title_case=False,
-        #col_raw_text="raw_text",
-        #col_span_entities="raw_affiliation_string",
-        #col_potential_error="potential_error_span",
-        #span_entity_type_field="entity_group",
-        #span_entity_text_field="word",
-        #span_entity_score_field="score",
-        #span_entity_start_field="start",
-        #span_entity_end_field="end"
+        verbose=False
     ):
+    
+        if not verbose:
+            transformers_logging.set_verbosity_error()
+            transformers_logging.disable_progress_bar()
+    
         # Initialize pipeline model and tokenizer
         self.model = pipeline(
             "ner",
@@ -78,7 +75,7 @@ class NER:
                 span_index_map.append((idx, span_idx))  # Record which item and span this belongs to
 
         # Run the span identification model on the entire batch
-        outputs = list(tqdm(self.model(KeyDataset(Dataset.from_dict({"text": spans_to_process}), "text"), batch_size=self.batch_size)))
+        outputs = list(self.model(KeyDataset(Dataset.from_dict({"text": spans_to_process}), "text")))
 
         # Initialize the results structure for each item in text_list
         results = [{"raw_text": item["raw_text"], "span_entities": item["span_entities"], "ner": [], "ner_raw": []} for item in text_list]
