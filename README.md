@@ -20,7 +20,7 @@ This is the official repository for the paper ["AffilGood: Building reliable ins
 
 For more detailed information about using and extending AffilGood, check out our documentation:
 
-- [API Documentation](docs/api-documentation.md) - Detailed reference for all classes and methods
+- [AffilGood Modules](docs/modules.md) - Detailed reference for classes and methods in all modules
 - [Usage Examples](docs/usage-examples.md) - Code examples for different use cases
 - [Technical Overview](docs/technical-overview.md) - In-depth explanation of system architecture and design
 - [Entity Linking Extension Guide](docs/entity-linking-extension.md) - Guide for extending the entity linking module
