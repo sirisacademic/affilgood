@@ -16,28 +16,15 @@ This is the official repository for the paper ["AffilGood: Building reliable ins
 - **Location Normalization**: Integration with OpenStreetMap for standardizing geographic data
 - **Country Code Normalization**: Mapping of country names to standard codes
 
-## Detailed Documentation
+## 📚 Documentation
 
-For detailed documentation please refer to the docs directory:
+For more detailed information about using and extending AffilGood, check out our documentation:
 
-
-
-## 📊 Performance
-
-AffilGood achieves state-of-the-art performance on institution name disambiguation tasks compared to existing systems:
-
-| **Model**                     | **MA** | **FA** | **NRMO** | **S2AFF*** | **CORDIS** | **ETERe** | **ETERm** |
-|-------------------------------|--------|--------|----------|------------|------------|-----------|-----------|
-| ElasticSearch                 | .545   | .407   | .470     | .515       | .751       | .855      | .847      |
-| OpenAlex                      | .394   | .118   | .769     | **.871**🔥  | .648       | .859      | .852      |
-| S2AFF                         | .546   | .367   | .617     | .785       | .649       | .668      | .720      |
-| AffRo                         | .452   | .408   | .558     | .726       | .641       | .709      | .617      |
-| AffilGoodNERm + S2AFF<sub>Linker</sub> | .596 | .685 | .762 | .841       | .827       | .887      | .863      |
-| AffilGoodNER + S2AFF<sub>Linker</sub>  | .579 | .685 | .758 | .850       | .839       | .895      | .855      |
-| AffilGoodNERm + Elastic       | .690   | .587   | .747     | .640       | .849       | .887      | .894      |
-| AffilGoodNER + Elastic        | .649   | .610   | .755     | .648       | .855       | .893      | .881      |
-| AffilGoodNERm + Elastic+qLLM  | **.710**🔥 | .721 | **.774**🔥 | .790 | .881       | **.936**🔥 | **.916**🔥 |
-| AffilGoodNER + Elastic+qLLM   | .653   | **.747**🔥 | .767 | .799       | **.891**🔥 | **.936**🔥 | .909      |
+- [API Documentation](docs/api-documentation.md) - Detailed reference for all classes and methods
+- [Usage Examples](docs/usage-examples.md) - Code examples for different use cases
+- [Technical Overview](docs/technical-overview.md) - In-depth explanation of system architecture and design
+- [Entity Linking Extension Guide](docs/entity-linking-extension.md) - Guide for extending the entity linking module
+- [Contribution Guide](docs/contribution-guide.md) - Guidelines for contributing to the project
 
 ## 🛠️ Installation
 
@@ -133,6 +120,25 @@ AffilGood uses several pre-trained models available on Hugging Face:
 - 🤗 [SIRIS-Lab/affilgood-span-multilingual](https://huggingface.co/SIRIS-Lab/affilgood-span-multilingual) - Multilingual span model
 - 🤗 [SIRIS-Lab/affilgood-affilRoBERTa](https://huggingface.co/SIRIS-Lab/affilgood-affilroberta) - RoBERTa adapted for affiliation data
 - 🤗 [SIRIS-Lab/affilgood-affilXLM](https://huggingface.co/SIRIS-Lab/affilgood-affilxlm) - XLM-RoBERTa adapted for affiliation data
+
+## 📊 Performance (from paper)
+
+Note: These results can be outdated as the pipeline is in development and new features are being included.
+
+AffilGood achieves state-of-the-art performance on institution name disambiguation tasks compared to existing systems:
+
+| **Model**                     | **MA** | **FA** | **NRMO** | **S2AFF*** | **CORDIS** | **ETERe** | **ETERm** |
+|-------------------------------|--------|--------|----------|------------|------------|-----------|-----------|
+| ElasticSearch                 | .545   | .407   | .470     | .515       | .751       | .855      | .847      |
+| OpenAlex                      | .394   | .118   | .769     | **.871**🔥  | .648       | .859      | .852      |
+| S2AFF                         | .546   | .367   | .617     | .785       | .649       | .668      | .720      |
+| AffRo                         | .452   | .408   | .558     | .726       | .641       | .709      | .617      |
+| AffilGoodNERm + S2AFF<sub>Linker</sub> | .596 | .685 | .762 | .841       | .827       | .887      | .863      |
+| AffilGoodNER + S2AFF<sub>Linker</sub>  | .579 | .685 | .758 | .850       | .839       | .895      | .855      |
+| AffilGoodNERm + Elastic       | .690   | .587   | .747     | .640       | .849       | .887      | .894      |
+| AffilGoodNER + Elastic        | .649   | .610   | .755     | .648       | .855       | .893      | .881      |
+| AffilGoodNERm + Elastic+qLLM  | **.710**🔥 | .721 | **.774**🔥 | .790 | .881       | **.936**🔥 | **.916**🔥 |
+| AffilGoodNER + Elastic+qLLM   | .653   | **.747**🔥 | .767 | .799       | **.891**🔥 | **.936**🔥 | .909      |
 
 ## 📝 Citation
 
