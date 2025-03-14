@@ -1,374 +1,253 @@
-# entity_linker.py
-#import download_s2aff
-import re
 import os
+import re
 import sys
-import requests
-import zipfile
 import json
-import boto3
-import gzip
-import pandas as pd
-from tqdm import tqdm
-
-from io import BytesIO
-from botocore import UNSIGNED
-from botocore.config import Config
-
-# Whether to process a few for testing.
-TEST_EL = False
-# S2AFF root path relative to AffilGoodEL
-S2AFF_PATH = 'S2AFF'
-# ROR dump link.
-ROR_DUMP_LINK = 'https://zenodo.org/api/records/?communities=ror-data&sort=mostrecent'
-# ROR dump path relative to AffilGoodEL. Leave empty to download the latest ROR dump.
-ROR_DUMP_PATH = ''
-# Update OpenAlex ROR counts if current file older than this number of days.
-UPDATE_OPENALEX_WORK_COUNTS_OLDER_THAN = 7
-# Substring of URLs to omit when downloading S2AFF data
-OMIT_S2AFF = ['ner_model', 'training', 'ror-data.json']
-# Chunk size.
-CHUNK_SIZE_EL = 1000
-# Max. parallel processes.
-MAX_PARALLEL_EL = 20
-# Save output by chunks.
-SAVE_CHUNKS_EL = True
-# This score is used if we want to run a system keeping first-stage candidates (NOT USED now).
-THRESHOLD_SCORE_FIRSTSTAGE_EL = 0.65
-# This score is used to determine which candidates are passed to the re-ranking stage. Now considering all positive values.
-THRESHOLD_SCORE_FILTER_FIRSTAGE_EL = 0
-# This score is used to determine which candidates are kept after the re-ranking stage.
-THRESHOLD_SCORE_RERANKED_EL = 0.25
-#THRESHOLD_SCORE_RERANKED_EL = 0.15
-NUM_CANDIDATES_TO_RERANK = 10
-# Names of EL output column for labels.
-COL_PREDICTIONS_EL = 'predicted_label'
-COL_POTENTIAL_ERROR_NER = 'potential_error_ner'
-
-# Names of EL output columns for labels with scores.
-COL_PREDICTIONS_SCORES_EL = 'predicted_label_score'
-## ROR dictionary fields
-ROR_NAME_FIELD = 'name'
-ROR_ID_FIELD = 'id'
-
-# NER entity labels
-SUBORG_NER_LABEL = 'SUBORG'
-MAINORG_NER_LABEL = 'ORG'
-CITY_NER_LABEL = 'CITY'
-COUNTRY_NER_LABEL = 'COUNTRY'
-REGION_NER_LABEL = 'REGION'
-
-# NER entity fields
-NER_ENTITY_TYPE_FIELD = 'entity_group'
-NER_ENTITY_TEXT_FIELD = 'word'
-NER_ENTITY_SCORE_FIELD = 'score'
-NER_ENTITY_START_FIELD = 'start'
-NER_ENTITY_END_FIELD = 'end'
-MIN_LENGTH_NER_ENTITY = 2
-IGNORE_NER_ENTITY_PREFIX = '##'
-COL_NER_ENTITIES = 'ner_raw'
-
-S2AFF_ABS_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), S2AFF_PATH))
-sys.path.insert(0, S2AFF_ABS_PATH)
-from s2aff.consts import PATHS
-# Make sure that S2AFF_PATH is in the sys.path or add it if necessary.
-from s2aff.ror import RORIndex
-from s2aff.model import PairwiseRORLightGBMReranker
-#ror_index = RORIndex()
-# df_linked = process_chunk_el(ror_index, pairwise_model, df_ner)
-from IPython.display import clear_output
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
+from .data_manager import DataManager
+from .constants import *
+
+# Make sure that S2AFF is in the path to avoid changing the code in S2AFF implementations.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), S2AFF_PATH)))
+
+def json_serializable(obj):
+    """Convert NumPy types to Python native types for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [json_serializable(x) for x in obj]
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return json_serializable(obj.tolist())
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    else:
+        return obj
 
 class EntityLinker:
-    def __init__(self, method = ['S2AFF','LLM','ElasticSearch'], device="cpu"):
-        # Initialize linking model (e.g., ElasticSearch index, S2AFF model, etc.)
-        self.method = method
-        self.CACHED_PREDICTED_ID = {}
-        self.CACHED_PREDICTED_ID_SCORE = {}
-        self.title_case = False
+    """Main entity linker class supporting multiple matching methods."""
 
-    def load_linker(self, model, device):
-        # Load or initialize the entity linking model
-        return None  # Placeholder
-
-    def link_entities(self, ner_output):
-        # Link NER entities to identifiers (e.g., ROR identifiers)
-        linked_entities = [self.model(entity) for entity in ner_output]
-        return linked_entities
-    
-    def get_local_ror_dumps(self, path_data):
-        #---------------------------------
-        # get a list of all of the json files in the directory that that have the text 'ror-data' in them
-        # and sort it in order of most recent version to least recent version
-        json_files = [os.path.join(path_data, f) for f in os.listdir(path_data) 
-                    if os.path.isfile(os.path.join(path_data, f)) and "ror-data.json" in f]
-        json_files.sort(reverse=True)
-        return json_files
-    
-    def get_latest_ror(self):
-        #---------------------------------
-        ROR_DUMP_FILE = None
-        path_data = f'{S2AFF_ABS_PATH}/data'
-        local_ror_dumps = self.get_local_ror_dumps(path_data)
-        # Make a GET request to the Zenodo API endpoint
-        print(f'Retrieving latest ROR dump from {ROR_DUMP_LINK}')
-        try:
-            response = requests.get(ROR_DUMP_LINK)
-            response.raise_for_status()
-            # Get the download URL of the most recent ROR record
-            download_url = response.json()["hits"]["hits"][0]["files"][0]["links"]["self"]
-            file_name = response.json()["hits"]["hits"][0]["files"][0]["key"]
-            file_path = f'{path_data}/{file_name}'
-            if os.path.exists(file_path):
-                print(f'Latest ROR dump {file_path} already exists. Skipping download.')
-            else:
-                # Download the record
-                print(f'Downloading ROR dump from {download_url} to {file_path}')
-                response = requests.get(download_url) 
-                response.raise_for_status()
-                with open(file_path, "wb") as f:
-                    f.write(response.content)
-                if os.path.exists(file_path):
-                    print(f'Extracting ROR dump from {file_path}')
-                    # unzip the file_name and delete the zip file
-                    with zipfile.ZipFile(file_path, "r") as zip_ref:
-                        zip_ref.extractall(path=path_data)
-                    #os.remove(file_path)
-                    local_ror_dumps = self.get_local_ror_dumps(path_data)
-        except:
-            pass
-        if len(local_ror_dumps) > 0:
-            ROR_DUMP_FILE = local_ror_dumps[0]
-        return f'{ROR_DUMP_FILE}'
-    
-    def update_openalex_works_counts(self,):
-        #----------------------------------
+    def __init__(self, linkers=[], return_scores=True, output_dir=OUTPUT_PARTIAL_CHUNKS):
         """
-        Go through every single file from s3://openalex/data/institutions/updated_date=*/part-***.gz
-        Stream the jsonl files inside there
-        """
-        bucket = "openalex"
-        prefix = "data/institutions/"
-        s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-        paginator = s3.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
-        works_count_dict = {}
-        for page in pages:
-            for obj in page["Contents"]:
-                print(obj)
-                if obj["Key"].endswith(".gz"):
-                    print("Working on", obj["Key"])
-                    obj = s3.get_object(Bucket=bucket, Key=obj["Key"])
-                    with gzip.GzipFile(fileobj=BytesIO(obj["Body"].read())) as f:
-                        for line in f:
-                            line = json.loads(line)
-                            ror_id = line["ror"]
-                            works_count = line["works_count"]
-                            works_count_dict[ror_id] = works_count
-        # convert works_count_dict to a dataframe
-        df = pd.DataFrame.from_dict(works_count_dict, orient="index", columns=["works_count"]).reset_index()
-        df.columns = ["ror", "works_count"]
-        df.to_csv(PATHS["openalex_works_counts"], index=False)
-
-    def ignore_entity(self, entity):
-        """
-        Entities predicted by the NER that are to be ignored.
-        """
-        if not isinstance(entity, dict):
-            #print(f"Invalid entity format: {entity}")
-            return True  # Ignore invalid entities
+        Initialize with a list of linker instances.
         
-        ignore = len(entity[NER_ENTITY_TEXT_FIELD]) < MIN_LENGTH_NER_ENTITY\
-            or entity[NER_ENTITY_TEXT_FIELD].startswith(IGNORE_NER_ENTITY_PREFIX) #entity[NER_ENTITY_SCORE_FIELD] < THRESHOLD_SCORE_NER\ or
-        return ignore
-    
+        Args:
+            linkers: List of linker instances or class names (strings).
+            output_dir: Directory for partial output chunks
+        """
+        # Return probabilities?
+        self.return_scores = return_scores
+        # Set up output directory.
+        self.output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), output_dir)
+        if not os.path.exists(self.output_path):
+            os.makedirs(self.output_path, exist_ok=True)
+        # Initialize data manager.
+        self.data_manager = DataManager()
+        # Initialize linkers.
+        self._initialize_linkers(linkers)
 
-    def get_first_entity(self, entities, entity_type, search_right=True):
+
+    def _initialize_linkers(self, linkers):
+        """Initialize linkers from instances or class names."""
+        # Initialize linkers dictionary
+        self.linkers = {}
+        for linker in linkers:
+            if isinstance(linker, str):
+                # It's a class name, we need to instantiate it
+                if linker == 'S2AFF':
+                    from .s2aff_linker import S2AFFLinker
+                    self.linkers[linker] = S2AFFLinker(data_manager=self.data_manager)
+                elif linker == 'Whoosh':
+                    from .whoosh_linker import WhooshLinker
+                    self.linkers[linker] = WhooshLinker(data_manager=self.data_manager)
+                else:
+                    raise ValueError(f"Unknown linker type: {linker}")
+            else:
+                # It's already an instance, just add it to the dictionary
+                # The name is derived from the class name
+                linker_name = linker.__class__.__name__
+                self.linkers[linker_name] = linker
+                # If the linker doesn't have a data_manager, provide one
+                if hasattr(linker, 'data_manager') and linker.data_manager is None:
+                    linker.data_manager = self.data_manager
+
+    def process_in_chunks(self, entities, output_dir=None):
+        """Process text in chunks with parallelization and optional saving."""
+        # Divide input into chunks
+        chunks = [entities[i:i + CHUNK_SIZE_EL] for i in range(0, len(entities), CHUNK_SIZE_EL)]
+        
+        # Process chunks in parallel
+        with ThreadPoolExecutor(max_workers=MAX_PARALLEL_EL) as executor:
+            futures = [
+                executor.submit(self.process_chunk_el, chunk)
+                for chunk in chunks
+            ]
+        
+        # Collect results
+        results = []
+        for idx, future in enumerate(futures):
+            chunk_result = future.result()
+            results.extend(chunk_result if isinstance(chunk_result, list) else self.merge_results(chunk_result))
+            # Save intermediate results if required
+            if SAVE_CHUNKS_EL:
+                output_file = os.path.join(self.output_path, f"chunk_{idx}.json")
+                with open(output_file, "w") as f:
+                    json.dump(json_serializable(chunk_result), f)
+        
+        # No need to merge again if we've already merged each chunk.
+        return results
+
+    def process_chunk_el(self, chunk):
+        """Process a chunk using the selected linkers."""
+        results = {}
+        for method, linker in self.linkers.items():
+            results[method] = linker.process_chunk_el(chunk, return_scores=len(self.linkers)>1 or self.return_scores)
+        # If only one method, return its results directly
+        return next(iter(results.values())) if len(results) == 1 else results
+
+    def merge_results(self, results):
         """
-        Find the first entity of a certain type in a list of entities, starting from a given position.
-        Used, for instance, to find the first ORG to the right or left of a SUBORG.
+        Merge results from multiple entity linking methods.
         """
-        if search_right:
-            for pos, entity in enumerate(entities):
-                if entity[NER_ENTITY_TYPE_FIELD] == entity_type and not self.ignore_entity(entity):
-                    return entity, pos
-        else:
-            for pos, entity in enumerate(reversed(entities)):
-                if entity[NER_ENTITY_TYPE_FIELD] == entity_type and not self.ignore_entity(entity):
-                    return entity, len(entities) - pos - 1
-        return None, 0
-    
-    def get_entity_groupings(self, entities):
+        # If results is a dictionary with linker methods as keys
+        if isinstance(results, dict) and all(method in self.linkers for method in results):
+            return self._merge_method_results(results)
+        
+        # If we have a list of results from different chunks
+        merged = []
+        for item in results:
+            if isinstance(item, dict) and all(method in self.linkers for method in item):
+                merged.append(self._merge_item_results(item))
+            else:
+                merged.append(item)
+        return merged
+
+    def _merge_method_results(self, method_results):
+        """Merge results from different methods for all chunks."""
+        merged = []
+        for chunk_idx in range(len(next(iter(method_results.values())))):
+            # Start with common keys that should be present in all methods
+            any_method = next(iter(method_results.values()))
+            merged_item = {
+                "raw_text": any_method[chunk_idx]["raw_text"],
+                "span_entities": any_method[chunk_idx]["span_entities"],
+            }
+            
+            # Collect all possible keys from all methods
+            all_keys = set()
+            for method_name, method_results_list in method_results.items():
+                all_keys.update(method_results_list[chunk_idx].keys())
+            
+            # Skip 'raw_text' and 'span_entities' as we've already handled them
+            all_keys -= {"raw_text", "span_entities", "ror"}
+            
+            # For each key, use the first non-empty value found in any method
+            for key in all_keys:
+                for method_name, method_results_list in method_results.items():
+                    if key in method_results_list[chunk_idx] and method_results_list[chunk_idx][key]:
+                        merged_item[key] = method_results_list[chunk_idx][key]
+                        break
+            
+            # Special handling for 'ror' as it needs to be merged, not just copied
+            merged_item["ror"] = self._merge_ror_predictions([
+                method_results[method][chunk_idx].get("ror", []) for method in method_results
+            ])
+            
+            merged.append(merged_item)
+        return merged
+
+    def _merge_item_results(self, item_results):
+        """Merge results from different methods for a single item."""
+        merged_item = {
+            "raw_text": next(iter(item_results.values()))["raw_text"],
+            "span_entities": next(iter(item_results.values()))["span_entities"],
+            "ner": next(iter(item_results.values()))["ner"],
+            "osm": next(iter(item_results.values()))["osm"],
+            "ror": self._merge_ror_predictions([
+                item_results[method]["ror"] for method in item_results
+            ])
+        }
+        return merged_item
+
+    def _merge_ror_predictions(self, predictions_list):
         """
-        Generate groupings from the NER output, used to generate candidate affiliations to be linked with S2AFF.
+        Merge ROR predictions from different methods.
+        Takes a list of prediction sets and merges them, prioritizing by score.
         """
-        entity_groupings = []
-        for pos, entity in enumerate(entities):
-            if not self.ignore_entity(entity):
-                parsed_entity = {}
-                search_pos = pos + 1
-                if entity[NER_ENTITY_TYPE_FIELD] == SUBORG_NER_LABEL:
-                    # If it is a sub-organization, get parent organization -> first ORG found to the right.
-                    parent, pos_parent = self.get_first_entity(entities[search_pos:], MAINORG_NER_LABEL, search_right=True)
-                    if parent:
-                        search_pos += pos_parent + 1
-                    else:
-                        # If no parent found to the right, get the first ORG to the left.
-                        parent, pos_parent = self.get_first_entity(entities[:pos], MAINORG_NER_LABEL, search_right=False)
-                        if parent:
-                            parsed_entity[SUBORG_NER_LABEL] = entity[NER_ENTITY_TEXT_FIELD].strip()
-                            parsed_entity[MAINORG_NER_LABEL] = parent[NER_ENTITY_TEXT_FIELD].strip()
+        if not predictions_list or len(predictions_list) == 0:
+            return []
+        
+        # Prepare all predictions in a consistent format - list of lists of strings
+        normalized_predictions = []
+        for preds in predictions_list:
+            if isinstance(preds, str):
+                # Handle string format (pipe-delimited)
+                normalized_predictions.append(preds.split('|') if preds else [])
+            elif isinstance(preds, list):
+                # Already a list
+                normalized_predictions.append(preds)
+            else:
+                # Empty or unrecognized format
+                normalized_predictions.append([])
+        
+        # Process each position in parallel (e.g., first span's predictions, second span's predictions)
+        merged_results = []
+        
+        # Make sure we have at least one set of predictions for each position
+        max_length = max(len(preds) for preds in normalized_predictions) if normalized_predictions else 0
+        for position in range(max_length):
+            # Collect all predictions for this position
+            position_preds = []
+            for method_preds in normalized_predictions:
+                if position < len(method_preds) and method_preds[position]:
+                    position_preds.append(method_preds[position])
+            
+            # Parse predictions and aggregate by entity
+            entity_scores = {}
+            for pred_str in position_preds:
+                # Split by pipe in case there are multiple predictions in one string
+                for single_pred in (pred_str.split('|') if isinstance(pred_str, str) else [pred_str]):
+                    if not single_pred:
+                        continue
+                    
+                    # Remove ROR url if present.
+                    single_pred = single_pred.replace(ROR_URL, "")
+                    # Extract name and score
+                    try:
+                        if ':' in single_pred:
+                            name_part, score_part = single_pred.rsplit(':', 1)
+                            try:
+                                score = float(score_part.strip()) if score_part.strip() else 0.0
+                            except ValueError:
+                                score = 0.0
                         else:
-                            # If no parent is found we ignore it as it is most likely an error.
-                            continue
-                elif entity[NER_ENTITY_TYPE_FIELD] == MAINORG_NER_LABEL:
-                    parsed_entity[MAINORG_NER_LABEL] = entity[NER_ENTITY_TEXT_FIELD].strip()
-                if entity[NER_ENTITY_TYPE_FIELD] == SUBORG_NER_LABEL or entity[NER_ENTITY_TYPE_FIELD] == MAINORG_NER_LABEL:
-                    # Look for city/region/country to the right of the MAINORG_NER_LABEL.
-                    # City
-                    city, pos_city = self.get_first_entity(entities[search_pos:], CITY_NER_LABEL)
-                    if city:
-                        search_pos += pos_city + 1
-                        parsed_entity[CITY_NER_LABEL] = city[NER_ENTITY_TEXT_FIELD].strip()
-                    # Region
-                    region, pos_region = self.get_first_entity(entities[search_pos:], REGION_NER_LABEL)
-                    if region:
-                        search_pos += pos_region + 1
-                        parsed_entity[REGION_NER_LABEL] = region[NER_ENTITY_TEXT_FIELD].strip()
-                    # Country
-                    country, pos_country = self.get_first_entity(entities[search_pos:], COUNTRY_NER_LABEL)
-                    if country:
-                        parsed_entity[COUNTRY_NER_LABEL] = country[NER_ENTITY_TEXT_FIELD].strip()
-                if parsed_entity and parsed_entity not in entity_groupings:
-                    entity_groupings.append(parsed_entity)
-        return entity_groupings
-
-    def get_el_input_organizations(self, grouped_entities, osm):
-        """
-        Get the input about organizations, locations and sub-organizations necessary for S2AFF.
-        """
-        organizations = []
-        for group in grouped_entities:
-            organization = {}
-            # Groupings without a main organization are skipped.
-            if MAINORG_NER_LABEL in group and group[MAINORG_NER_LABEL]:
-                organization['main'] = group[MAINORG_NER_LABEL]
-                # Get sub-organizations if present.
-                organization['suborg'] = group[SUBORG_NER_LABEL] if SUBORG_NER_LABEL in group and group[SUBORG_NER_LABEL] else ''
-                # Get city and country if present
-                if osm == None:
-                    location = [group[CITY_NER_LABEL]] if CITY_NER_LABEL in group and group[CITY_NER_LABEL] else []
-                    if COUNTRY_NER_LABEL in group:
-                        location.append(group[COUNTRY_NER_LABEL])
-                    organization['location'] = ', '.join(location)
-                if osm != None: 
-                    organization['location'] = ', '.join([value for value in [osm.get('CITY', None), osm.get('PROVINCE', None), osm.get('STATE', None), osm.get('COUNTRY', None)] if value is not None])
-                if organization not in organizations:
-                    organizations.append(organization)
-        return organizations
-    
-    def get_s2aff_single_prediction(self, ror_index, pairwise_model, organization):
-        """
-        Get S2AFF predictions for one input "organization" (main organization possibly with children).
-        """
-        predicted_id = None
-        predicted_score = None
-        # We combine the organization and one child organization if present to look it up in the cache.
-        organization_string = ', '.join([organization['suborg'], organization['main'], organization['location']])
-        if organization_string in self.CACHED_PREDICTED_ID:
-            return self.CACHED_PREDICTED_ID[organization_string], self.CACHED_PREDICTED_ID_SCORE[organization_string]
-        else:
-            first_stage_candidates, first_stage_scores = ror_index.get_candidates_from_main_affiliation(
-                organization['main'],
-                organization['location'],
-                [organization['suborg']])
-            # Discard all candidates/scores below the minimum score. When know scores is a descending sorted list.
-            len_filtered_scores = len([s for s in first_stage_scores if s >= THRESHOLD_SCORE_FILTER_FIRSTAGE_EL])
-            candidates = first_stage_candidates[:len_filtered_scores]
-            scores = first_stage_scores[:len_filtered_scores]
-            if candidates:
-                reranked_candidates, reranked_scores = pairwise_model.predict(
-                    organization_string,
-                    candidates[:NUM_CANDIDATES_TO_RERANK],
-                    scores[:NUM_CANDIDATES_TO_RERANK])
-                # Get the top-ranked one if above score.
-                top_rr_score = reranked_scores[0]
-                if top_rr_score >= THRESHOLD_SCORE_RERANKED_EL:
-                    top_rr_ror_idx = reranked_candidates[0]
-                    if top_rr_ror_idx in ror_index.ror_dict and ROR_ID_FIELD in ror_index.ror_dict[top_rr_ror_idx]:
-                        predicted_id = ror_index.ror_dict[top_rr_ror_idx][ROR_ID_FIELD]
-                        predicted_score = top_rr_score
-                        self.CACHED_PREDICTED_ID[organization_string] = predicted_id
-                        self.CACHED_PREDICTED_ID_SCORE[organization_string] = predicted_score
-        return predicted_id, predicted_score
-    
-    def get_predicted_labels(self, ror_index, pairwise_model, organizations):
-        #--------------------------------------------------
-            predicted_names = {}
-            predicted_scores = {}
-            for organization in organizations:
-                predicted_id, predicted_score = self.get_s2aff_single_prediction(ror_index, pairwise_model, organization)
-                if predicted_id and predicted_id not in predicted_names and ROR_NAME_FIELD in ror_index.ror_dict[predicted_id]:
-                    predicted_names[predicted_id] = ror_index.ror_dict[predicted_id][ROR_NAME_FIELD]
-                if predicted_id and (predicted_id not in predicted_scores or predicted_scores[predicted_id] < predicted_score):
-                    predicted_scores[predicted_id] = predicted_score
-            predicted_names_ids = [f'{predicted_names[predicted_id]} {{{predicted_id}}}' for predicted_id in predicted_names]
-            predicted_labels = '|'.join(predicted_names_ids)
-            predicted_labels_scores = '|'.join([f'{predicted_names[predicted_id]} {{{predicted_id}}}:{predicted_scores[predicted_id]:.2f}' for predicted_id in predicted_names])
-            return [predicted_labels, predicted_labels_scores]
-    
-    def process_chunk_el(self, chunk, ror_index, pairwise_model, output_file_path_chunks='', overwrite_existing=False):
+                            name_part = single_pred
+                            score = 0.0
+                        
+                        # Update with higher score if entity already exists
+                        entity_scores[name_part] = max(entity_scores.get(name_part, 0), score)
+                    except Exception as e:
+                        print(f"Error parsing prediction: {single_pred} - {str(e)}")
             
-            #output_path = output_file_path_chunks.format(f'{df_chunk.index[0]}_{df_chunk.index[-1]}')
-            chunk_to_process = []
-            chunk_index_map = []  # Track the position in text_list and span_entities index
+            # Sort by score descending and format results
+            sorted_entities = sorted(entity_scores.items(), key=lambda x: -x[1])
 
-            for idx, item in enumerate(chunk):
-                span_entities = item.get("ner_raw", [])
-                osm_entities = item.get("osm", [])
-                for span_idx, tupla in enumerate(list(zip(span_entities,osm_entities))):
-                    span, osm = tupla
-                    # Clean and optionally apply title case to the span text
-                    chunk_to_process.append((span,osm))
-                    chunk_index_map.append((idx, span_idx))  # Record which item and span this belongs to
+            # Process entities with formatted ROR URLs.
+            formatted_entities = []
+            for name, score in sorted_entities:
+                # Add ROR URL to the ID in curly braces
+                formatted_name = re.sub(r'\{([0-9a-z]+)\}', lambda m: '{' + ROR_URL + m.group(1) + '}', name)
+                formatted_entities.append((formatted_name, score))
 
-            processed_list = []
-            for ner, osm in chunk_to_process:
+            # Create the output string
+            if self.return_scores:
+                merged_str = '|'.join(f"{name}:{score:.2f}" for name, score in formatted_entities)
+            else:
+                merged_str = '|'.join(name for name, score in formatted_entities)
 
-                result = {}
-                # Apply entity groupings
-                result['grouped_entities'] = self.get_entity_groupings(ner)
-
-                # Generate entity linking inputs
-                result['el_input_organizations'] = self.get_el_input_organizations(result['grouped_entities'], osm)
-
-                # Generate predictions
-                predictions, scores = self.get_predicted_labels(
-                    ror_index, pairwise_model, result['el_input_organizations']
-                )
-                result[COL_PREDICTIONS_EL] = predictions
-                result[COL_PREDICTIONS_SCORES_EL] = scores
-
-                # Add processed item to the list
-                processed_list.append(result)
-            
-            results = [{"raw_text": item["raw_text"], "span_entities": item["span_entities"], "ner": item['ner'], "osm": item['osm'],"ror":[]} for item in chunk]
-
-            for idx, ner in enumerate(chunk_to_process):
-                # Map each output back to the corresponding text_list item and span_entities index
-                entities = processed_list[idx]
-
-                # Append ner entities for the current span to the correct entry in results
-                item_idx, ror_idx = chunk_index_map[idx]
-                # Ensure that each item in "ner" corresponds to each span in "span_entities"
-                if len(results[item_idx]["ror"]) <= ror_idx:
-                    results[item_idx]["ror"].append({})
-                results[item_idx]["ror"][ror_idx] = entities[COL_PREDICTIONS_EL]
-
-            return results
-
-
-
-
-
+            merged_results.append(merged_str)
+        
+        return merged_results

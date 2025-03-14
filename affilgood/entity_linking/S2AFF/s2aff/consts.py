@@ -30,12 +30,6 @@ PATHS = {
     "ror_edits": os.path.join(PROJECT_ROOT_PATH, "data", "ror_edits.jsonl"),
 }
 
-for key in PATHS.keys():
-    if not os.path.exists(PATHS[key]):
-        PATHS[key] = "https://s3-us-west-2.amazonaws.com/ai2-s2-research-public/s2aff-release/" + ntpath.basename(
-            PATHS[key]
-        )
-
 USE_PROB_WEIGHTS = True
 MAX_INTERSECTION_DENOMINATOR = True
 WORD_MULTIPLIER = 0.3

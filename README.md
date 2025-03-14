@@ -1,57 +1,30 @@
-# AffilGood Library 🕺🏿
+# AffilGood Library 🔍
 
-AffilGood provides annotated datasets and tools to improve the accuracy of attributing scientific works to research organizations, especially in multilingual and complex contexts. The accurate attribution of scientific works to research organizations is hindered by the lack of openly available manually annotated data--in particular when multilingual and complex affiliation strings are considered. The AffilGood framework introduced in this paper addresses this gap. We identify three sub-tasks relevant for institution name disambiguation and make available annotated datasets and tools aimed at each of them, including i) a dataset annotated with affiliation spans in noisy automatically-extracted strings; ii) a dataset annotated with named entities for the identification of organizations and their locations; iii) seven datasets annotated with ROR identifiers for the evaluation of entity-linking systems. In addition, we describe, evaluate and make available newly developed tools that use these datasets to provide solutions for each of the identified sub-tasks. Our results confirm the value of the developed resources and methods in addressing key challenges in institution name disambiguation.
+AffilGood provides tools and annotated datasets to improve the accuracy of attributing scientific works to research organizations, especially in multilingual and complex contexts. The framework addresses key challenges in institution name disambiguation through a modular pipeline approach.
+
+![AffilGood Pipeline](figure1.png)
+
+## Publication
 
 This is the official repository for the paper ["AffilGood: Building reliable institution name disambiguation tools to improve scientific literature analysis"](https://aclanthology.org/2024.sdp-1.13/), published in the Scholarly Document Processing (SDP) 2024 Workshop at ACL 2024 Conference. Slides used in the presentation are available [here](https://docs.google.com/presentation/d/1wX7zInjoUrjO1hRL3U8tpSzxU6KOX0FknTaEqSf6ML0/edit#slide=id.g2effd47279e_0_22).
 
-![Figure 1](figure1.png)
+## 🌟 Key Features
 
-## Project Structure
+- **Modular Pipeline Architecture**: Separate components for span identification, named entity recognition, entity linking, and metadata normalization
+- **Multilingual Support**: Models trained on data in multiple languages
+- **Multiple Entity Linking Options**: Support for various linking strategies including Whoosh-based search and S2AFF integration
+- **Location Normalization**: Integration with OpenStreetMap for standardizing geographic data
+- **Country Code Normalization**: Mapping of country names to standard codes
 
-The repository is structured as follows:
+## Detailed Documentation
 
-```
-affilgood/
-├── __init__.py               # Initializes the library and imports the AffilGood class.
-├── span_identification/
-│   ├── span_identifier.py    # SpanIdentifier class for span identification.
-├── named_entity_recognition/
-│   ├── ner.py                # NER class for named entity recognition.
-├── entity_linking/
-│   ├── entity_linker.py      # EntityLinker class for entity linking.
-├── metadata_normalization/
-│   ├── normalizer.py         # Normalizer class for metadata normalization.
-└── affilgood.py              # AffilGood main class with process, get_span, and get_ner methods.
-```
-
-### Modules
+For detailed documentation please refer to the docs directory:
 
 
-## How It Works
 
-```python
-from affilgood import AffilGood
+## 📊 Performance
 
-my_affilgood = AffilGood()
-
-text = ["Granges Terragrisa SL, Paratge de La Gleva, Camí de Burrissola s/n, E-08508 Les Masies de Voltregà (Barcelona), Catalonia, Spain",
-"Treuman Katz Center for Pediatric Bioethics and Palliative Care, Center of Clinical and Translational Research, Seattle Children's Research Institute, 1900 Ninth Ave., MS: JMB-6, Seattle, WA, USA 98101; Division of Bioethics and Palliative Care, Department of Pediatrics, University of Washington School of Medicine, M/S MB.5.605, PO Box 5371, Seattle, WA 98105, USA; Department of Bioethics and Decision Sciences, Geisinger College of Health Sciences, Danville, PA 17044, USA. Electronic address: skraft1@geisinger.edu."]
-# Process examples
-my_affilgood.process(text)
-```
-
-## 🤗 Models are available at HuggingFace
-
-- 🤗 [SIRIS-Lab/affilgood-NER](https://huggingface.co/SIRIS-Lab/affilgood-NER)
-- 🤗 [SIRIS-Lab/affilgood-NER-multilingual](https://huggingface.co/SIRIS-Lab/affilgood-NER-multilingual)
-- 🤗 [SIRIS-Lab/affilgood-SPAN](https://huggingface.co/SIRIS-Lab/affilgood-span)
-- 🤗 [SIRIS-Lab/affilgood-span-multilingual](https://huggingface.co/SIRIS-Lab/affilgood-span-multilingual)
-- 🤗 [SIRIS-Lab/affilgood-affilRoBERTa](https://huggingface.co/SIRIS-Lab/affilgood-affilroberta)
-- 🤗 [SIRIS-Lab/affilgood-affilXLM](https://huggingface.co/SIRIS-Lab/affilgood-affilxlm)
-
-## 📝 Results
-### Pipeline
-Pipeline (NER+EL) results, evaluated by example-based F1-score. AffilGood-NER-multilingual correspond to the best-performing fine-tuned NER model with adapted XLM-RoBERTa, and AffilGood-NER, to the best with adapted English RoBERTa. Entities in pre-segmented datasets have concatenated with coma-separator.  
+AffilGood achieves state-of-the-art performance on institution name disambiguation tasks compared to existing systems:
 
 | **Model**                     | **MA** | **FA** | **NRMO** | **S2AFF*** | **CORDIS** | **ETERe** | **ETERm** |
 |-------------------------------|--------|--------|----------|------------|------------|-----------|-----------|
@@ -66,10 +39,106 @@ Pipeline (NER+EL) results, evaluated by example-based F1-score. AffilGood-NER-mu
 | AffilGoodNERm + Elastic+qLLM  | **.710**🔥 | .721 | **.774**🔥 | .790 | .881       | **.936**🔥 | **.916**🔥 |
 | AffilGoodNER + Elastic+qLLM   | .653   | **.747**🔥 | .767 | .799       | **.891**🔥 | **.936**🔥 | .909      |
 
-Disclaimer: we cannot guarantee that any of the baseline systems, such as OpenAlex or S2AFF, used samples from the original version of the S2AFF dataset for training, since it is open.
+## 🛠️ Installation
 
-## 📣 Citation
+```bash
+pip install affilgood
 ```
+
+Or for development:
+
+```bash
+git clone https://github.com/sirisacademic/affilgood.git
+cd affilgood
+pip install -r requirements.txt
+```
+
+## 🚀 Quick Start
+
+```python
+from affilgood import AffilGood
+
+# Initialize with default settings (Whoosh linker)
+affil_good = AffilGood()
+
+# Or customize components
+affil_good = AffilGood(
+    span_separator='',  # Use model-based span identification
+    span_model_path='nicolauduran45/affilgood-span-v2',  # Custom span model
+    ner_model_path='nicolauduran45/affilgood-ner-multilingual-v2',  # Custom NER model
+    entity_linkers='Whoosh',  # Use Whoosh for entity linking ('S2AFF' also available)
+    return_scores=True,  # Return confidence scores with predictions
+    metadata_normalization=True,  # Enable location normalization
+    verbose=False,  # Detailed logging
+    device=None  # Auto-detect device (CPU or CUDA)
+)
+
+# Process affiliation strings
+affiliations = [
+    "Granges Terragrisa SL, Paratge de La Gleva, Camí de Burrissola s/n, E-08508 Les Masies de Voltregà (Barcelona), Catalonia, Spain",
+    "Treuman Katz Center for Pediatric Bioethics, Seattle Children's Research Institute, Seattle, WA, USA"
+]
+
+# Full pipeline processing (span identification, NER, normalization, entity linking)
+results = affil_good.process(affiliations)
+
+# Or use individual components
+spans = affil_good.get_span(affiliations)
+entities = affil_good.get_ner(spans)
+normalized = affil_good.get_normalization(entities)
+linked = affil_good.get_entity_linking(normalized)
+
+print(linked)
+```
+
+## 📦 Project Structure
+
+The repository is structured as follows:
+
+```
+affilgood/
+├── __init__.py                   # Package initialization
+├── affilgood.py                  # Main AffilGood class implementation
+├── span_identification/          # Span identification module
+│   ├── span_identifier.py        # Model-based span identification
+│   ├── simple_span_identifier.py # Character-based span splitter
+│   └── noop_span_identifier.py   # Pass-through identifier for pre-segmented data
+├── ner/                          # Named Entity Recognition module
+│   └── ner.py                    # NER implementation
+├── entity_linking/               # Entity linking module
+│   ├── entity_linker.py          # Main entity linking orchestrator
+│   ├── base_linker.py            # Base class for entity linkers
+│   ├── whoosh_linker.py          # Whoosh-based entity linker
+│   ├── s2aff_linker.py           # S2AFF-based entity linker
+│   ├── base_reranker.py          # Base class for rerankers
+│   ├── llm_reranker.py           # LLM-based reranker for candidate selection
+│   └── constants.py              # Constants for entity linking
+├── metadata_normalization/       # Metadata normalization module
+│   └── normalizer.py             # Location and country normalization
+└── utils/                        # Utility functions
+    ├── data_manager.py           # Data loading and caching
+    ├── text_utils.py             # Text processing utilities
+    └── translation_mappings.py   # Institution name translation mappings
+```
+
+## 🤗 Pre-trained Models
+
+AffilGood uses several pre-trained models available on Hugging Face:
+
+- 🤗 [nicolauduran45/affilgood-ner-multilingual-v2](https://huggingface.co/nicolauduran45/affilgood-ner-multilingual-v2) - Multilingual NER model
+- 🤗 [nicolauduran45/affilgood-span-v2](https://huggingface.co/nicolauduran45/affilgood-span-v2) - Span identification model
+- 🤗 [SIRIS-Lab/affilgood-NER](https://huggingface.co/SIRIS-Lab/affilgood-NER) - English NER model
+- 🤗 [SIRIS-Lab/affilgood-NER-multilingual](https://huggingface.co/SIRIS-Lab/affilgood-NER-multilingual) - Multilingual NER model
+- 🤗 [SIRIS-Lab/affilgood-SPAN](https://huggingface.co/SIRIS-Lab/affilgood-span) - English span model
+- 🤗 [SIRIS-Lab/affilgood-span-multilingual](https://huggingface.co/SIRIS-Lab/affilgood-span-multilingual) - Multilingual span model
+- 🤗 [SIRIS-Lab/affilgood-affilRoBERTa](https://huggingface.co/SIRIS-Lab/affilgood-affilroberta) - RoBERTa adapted for affiliation data
+- 🤗 [SIRIS-Lab/affilgood-affilXLM](https://huggingface.co/SIRIS-Lab/affilgood-affilxlm) - XLM-RoBERTa adapted for affiliation data
+
+## 📝 Citation
+
+If you use AffilGood in your research, please cite our paper:
+
+```bibtex
 @inproceedings{duran-silva-etal-2024-affilgood,
     title = "{A}ffil{G}ood: Building reliable institution name disambiguation tools to improve scientific literature analysis",
     author = "Duran-Silva, Nicolau  and
@@ -95,31 +164,14 @@ Disclaimer: we cannot guarantee that any of the baseline systems, such as OpenAl
 }
 ```
 
-## Dependencies
+## 🙋‍♀️ Contributing
 
-Ensure you have all necessary dependencies installed. You can install them using the following command:
+We welcome contributions to the AffilGood project! Instead of a single main branch, we use two branches:
 
-```bash
-pip install -r requirements.txt
-```
+- `develop`: Development and default branch for new features and bug fixes.
+- `main`: Production branch used to deploy the server components to the production environment.
 
-## 🙋‍♀️ Contribute to this project
-
-Instead of a single main branch, we use two branches to record the history of the project:
-
-- `develop`: development and default branch for new features and bug fixes.
-- `main`: production branch is used to deploy the server components to the `production` environment.
-
-Please, follow the 📗 [Contribution guidelines](/docs/contribute.md) in order to participate to this project.
-
-### 🛟 A note on language
-
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt).
-
-
-## 📝 Changelog
-
-All notable changes to this project will be documented in the 📝 [CHANGELOG](CHANGELOG.md) file, and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Please follow our [Contribution Guidelines](/docs/contribute.md) to participate in this project.
 
 ## 📫 Contact
 
@@ -127,4 +179,4 @@ For further information, please contact <nicolau.duransilva@sirisacademic.com>.
 
 ## ⚖️ License
 
-This work is distributed under a [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+This work is distributed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
