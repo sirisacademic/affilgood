@@ -27,10 +27,6 @@ class NER:
         verbose=False
     ):
     
-        if not verbose:
-            transformers_logging.set_verbosity_error()
-            transformers_logging.disable_progress_bar()
-    
         # Initialize pipeline model and tokenizer
         self.model = pipeline(
             "ner",
@@ -39,7 +35,11 @@ class NER:
             aggregation_strategy="simple",
             device=device
         )
-        
+
+        if not verbose:
+            transformers_logging.set_verbosity_error()
+            transformers_logging.disable_progress_bar()
+
         # Configuration settings
         self.device = device
         self.chunk_size = chunk_size

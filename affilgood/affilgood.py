@@ -3,9 +3,12 @@ from affilgood.ner.ner import NER
 from affilgood.entity_linking.entity_linker import EntityLinker
 from affilgood.metadata_normalization.normalizer import GeoNormalizer
 
-DEFAULT_SPAN_MODEL = 'nicolauduran45/affilgood-span-v2'
-DEFAULT_NER_MODEL = 'nicolauduran45/affilgood-ner-multilingual-v2'
-DEFAULT_ENTITY_LINKERS = 'Whoosh'
+#DEFAULT_SPAN_MODEL = 'nicolauduran45/affilgood-span-v2'
+#DEFAULT_NER_MODEL = 'nicolauduran45/affilgood-ner-multilingual-v2'
+
+DEFAULT_SPAN_MODEL = 'SIRIS-Lab/affilgood-span-multilingual'
+DEFAULT_NER_MODEL = 'SIRIS-Lab/affilgood-NER-multilingual'
+DEFAULT_ENTITY_LINKERS = 'S2AFF'
 
 class AffilGood:
 
@@ -16,7 +19,7 @@ class AffilGood:
                  entity_linkers=None,
                  return_scores=False,
                  metadata_normalization=True, 
-                 verbose=False,
+                 verbose=True,
                  device=None):
         
         # Verbose?
@@ -72,17 +75,9 @@ class AffilGood:
     # Rest of the methods remain the same
     def process(self, text):
         """Executes all steps: span identification, NER, entity linking, and normalization."""
-        if self.verbose:
-            print('Executing span identification')
         spans = self.get_span(text)
-        if self.verbose:
-            print('Executing NER')
         entities = self.get_ner(spans)
-        if self.verbose:
-            print('Normalizing data')
         normalized_data = self.get_normalization(entities)
-        if self.verbose:
-            print('Executing entity linking')
         linked_entities = self.get_entity_linking(normalized_data)
         return linked_entities
 

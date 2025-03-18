@@ -8,14 +8,15 @@ from datasets import Dataset
 from transformers.pipelines.pt_utils import KeyDataset
 import re
 
+DEFAULT_SPAN_MODEL = 'SIRIS-Lab/affilgood-span-multilingual'
+
 def clean_whitespaces(text):
-#---------------------------
   return re.sub(r'\s+', ' ', str(text).strip())
 
 class SpanIdentifier:
     def __init__(
         self,
-        model_path="nicolauduran45/affilgood-affiliation-span",
+        model_path=None,
         device=0,
         chunk_size=10000,
         max_parallel=10,
@@ -32,6 +33,10 @@ class SpanIdentifier:
         #span_entity_start_field="start",
         #span_entity_end_field="end"
     ):
+    
+        if model_path is None:
+            model_path = DEFAULT_SPAN_MODEL
+    
         # Initialize pipeline model and tokenizer
         self.model = pipeline(
             "ner",
