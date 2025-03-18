@@ -3,7 +3,7 @@
 # Whether to process a few for testing
 TEST_EL = False
 
-# Substring of URLs to omit when downloading S2AFF data
+# Substring of URLs to omit when downloading S2AFF data.
 OMIT_S2AFF = [
     'ner',
     'ror-data',
@@ -47,7 +47,7 @@ IGNORE_NER_ENTITY_PREFIX = '##'
 
 # Scoring Thresholds
 THRESHOLD_SCORE_FILTER_FIRSTAGE_EL = 0
-THRESHOLD_SCORE_RERANKED_EL = 0.25
+THRESHOLD_SCORE_RERANKED_EL = 0.20
 NUM_CANDIDATES_TO_RERANK = 10
 
 # Output Column Names
@@ -68,6 +68,7 @@ UPDATE_OPENALEX_WORK_COUNTS_OLDER_THAN = 30
 ROR_URL = 'https://ror.org/'
 
 # If path left empty download always the latest one.
+# Name file in S2AFF/data or full path.
 ROR_DUMP_PATH = ''
 ROR_DUMP_LINK = 'https://zenodo.org/api/records/?communities=ror-data&sort=mostrecent'
 

@@ -8,9 +8,9 @@ from tqdm import tqdm
 from affilgood import AffilGood
 from affilgood.entity_linking.whoosh_linker import WhooshLinker
 
-DEFAULT_SPAN_MODEL = 'noop'
-DEFAULT_NER_MODEL = 'nicolauduran45/affilgood-ner-multilingual-v2'
-DEFAULT_ENTITY_LINKERS = 'Whoosh'
+DEFAULT_SPAN_MODEL = 'SIRIS-Lab/affilgood-span-multilingual'
+DEFAULT_NER_MODEL = 'SIRIS-Lab/affilgood-NER-multilingual'
+DEFAULT_ENTITY_LINKERS = 'S2AFF'
 
 def extract_ror_ids(text):
     """Extract ROR IDs from text with format like "Org Name {https://ror.org/01234abc}"."""

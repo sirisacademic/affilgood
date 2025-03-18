@@ -293,14 +293,7 @@ class WhooshLinker(BaseLinker):
         # Get acronym variants
         acronym_variants = self.abbreviations.get(org_name.lower(), [])
         clean_name_variants.union(set(acronym_variants))
-        
-        if suborg:
-            suborg_variants = get_variants_list([suborg])
-            suborg_variants.extend(translate_institution_name(suborg))
-            clean_suborg_variants = {self._clean_organization_name(suborg_variant) for suborg_variant in suborg_variants}
-            clean_suborg_variants = {variant for variant in clean_suborg_variants if variant.strip()}
-            clean_name_variants = {f"{suborg}, {org}" for org in clean_name_variants for suborg in clean_suborg_variants}
-            
+                   
         if suborg:
             suborg_variants = get_variants_list([suborg])
             suborg_variants.extend(translate_institution_name(suborg))
