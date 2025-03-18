@@ -3,9 +3,6 @@ from affilgood.ner.ner import NER
 from affilgood.entity_linking.entity_linker import EntityLinker
 from affilgood.metadata_normalization.normalizer import GeoNormalizer
 
-#DEFAULT_SPAN_MODEL = 'nicolauduran45/affilgood-span-v2'
-#DEFAULT_NER_MODEL = 'nicolauduran45/affilgood-ner-multilingual-v2'
-
 DEFAULT_SPAN_MODEL = 'SIRIS-Lab/affilgood-span-multilingual'
 DEFAULT_NER_MODEL = 'SIRIS-Lab/affilgood-NER-multilingual'
 DEFAULT_ENTITY_LINKERS = 'S2AFF'
@@ -18,7 +15,8 @@ class AffilGood:
                  ner_model_path=None, 
                  entity_linkers=None,
                  return_scores=False,
-                 metadata_normalization=True, 
+                 metadata_normalization=True,
+                 use_cache_metadata_normalization=True,
                  verbose=True,
                  device=None):
         
@@ -64,7 +62,7 @@ class AffilGood:
         self.entity_linker = EntityLinker(linkers=entity_linkers, return_scores=return_scores)
         
         # Initialize normalizer
-        normalizer = GeoNormalizer() if metadata_normalization else None
+        normalizer = GeoNormalizer(use_cache=use_cache_metadata_normalization) if metadata_normalization else None
         if normalizer:
             if self.verbose:
                 print(f'Initializing normalizer: {normalizer}')
