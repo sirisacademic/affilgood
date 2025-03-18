@@ -9,6 +9,8 @@ import logging
 import time
 from geopy.geocoders import Nominatim
 
+CACHE_FILE_PATH = 'affilgood/metadata_normalization/cache.csv'
+
 SUPPORTED_LANGUAGES = [
     'af', 'am', 'ar', 'as', 'az', 'ba', 'bg', 'bho', 'bn', 'bo', 'brx', 'bs', 'ca', 'cs', 'cy', 'da', 'de', 'doi', 
     'dsb', 'dv', 'el', 'en', 'es', 'et', 'eu', 'fa', 'fi', 'fil', 'fj', 'fo', 'fr', 'fr-CA', 'ga', 'gl', 'gom', 
@@ -25,12 +27,13 @@ coco_logger = coco.logging.getLogger()
 coco_logger.setLevel(logging.CRITICAL)
 
 class GeoNormalizer:
-    def __init__(self, cache_fname='affilgood/metadata_normalization/cache.csv'):
+    def __init__(self, use_cache=True, cache_fname=CACHE_FILE_PATH):
         self.country_to_iso_mapping, self.country_codes = self.load_country_mappings()
         self.convert_cache = {}
         self.trans_cache = {}
-        self.cache_fname = 'affilgood/metadata_normalization/cache.csv'
-        self.cache = self.load_cache(cache_fname)
+        self.use_cache = use_cache
+        self.cache_fname = cache_fname
+        self.cache = self.load_cache(cache_fname) if use_cache else {}
         self.app = Nominatim(user_agent="siris_app")
         coco_logger = coco.logging.getLogger()
         coco_logger.setLevel(logging.CRITICAL)
@@ -195,12 +198,13 @@ class GeoNormalizer:
     
     def create_search_string(self, entities):
         """
-        Creates an OSM search string for an affiliation.       
+        Creates an OSM search string for an affiliation, tagging feature types.
+
         Parameters:
         - entities (dict): Dictionary with keys such as 'CITY', 'REGION', and 'COUNTRY' - or 'ORG'.
-        
+
         Returns:
-        - str: A formatted search string based on available location data, or None if insufficient data.
+        - str: A formatted search string prefixed with feature type (e.g., "country:Austria").
         """
         # Extract values from the dictionary, using the first element if available
         org = entities.get("ORG", [None])[0] if entities.get("ORG") else ""
@@ -208,8 +212,12 @@ class GeoNormalizer:
         country = entities.get("COUNTRY", [None])[0] if entities.get("COUNTRY") else ""
         region = entities.get("REGION", [None])[0] if entities.get("REGION") else ""
 
+        # Default feature type.
+        feature_type = "settlement"
+
         # If we have a city, use it as the primary search component
         if city:
+            feature_type = "city"
             search_parts = [city]
             if region:
                 search_parts.append(region)
@@ -217,49 +225,20 @@ class GeoNormalizer:
                 search_parts.append(country)
         # If no city but we have region, use region as primary search component
         elif region:
+            feature_type = "state"
             search_parts = [region]
             if country:
                 search_parts.append(country)
         # If only country, decide if we want to use it (could be too broad)
         elif country:
+            feature_type = "country"
             search_parts = [country]
         else:
             # No location information available
             return None
 
-        return self.clean_string(", ".join(search_parts)).replace(', ,',',')
-    
-    """
-    def create_search_string(self,entities):
-        '''
-        Creates an OSM search string for an affiliation based on city, region, and country information.
-        Extracts values from a dictionary with keys like 'CITY', 'REGION', and 'COUNTRY'.
+        return f"{feature_type}:" + self.clean_string(", ".join(search_parts)).replace(', ,',',')
         
-        Parameters:
-        - entities (dict): Dictionary with keys such as 'CITY', 'REGION', and 'COUNTRY'.
-        
-        Returns:
-        - str: A formatted search string based on available location data.
-        '''
-        # Extract values from the dictionary, using the first element if available
-        city = entities.get("CITY", [None])[0]
-        country = entities.get("COUNTRY", [None])[0]
-        region = entities.get("REGION", [None])[0]
-
-        # If there's no city information, return an empty string
-        if not city:
-            return None
-
-        # Join parts based on their availability
-        search_parts = [city]
-        if region:
-            search_parts.append(region)
-        if country:
-            search_parts.append(country)
-    
-        return self.clean_string(", ".join(search_parts)).replace(', ,',',')
-    """
-    
     def load_cache(self,fname):
         if os.path.isfile(fname):
             with open(fname, mode='r') as infile:
@@ -272,7 +251,7 @@ class GeoNormalizer:
             with open(self.cache_fname, mode='w', newline='') as file:
                 pass  # No content is written
             return mydict
-        
+     
     def fetch_data(self, search_string, attempt, app):
         """
         It makes a single call to OSM API.
@@ -283,19 +262,20 @@ class GeoNormalizer:
         MAX_NUM_ATTEMPTS = 5
         
         try:
-            res = app.geocode(search_string, addressdetails=True, language ="en", featuretype='city')
+            featuretype, _, location_query = search_string.partition(":")
+            res = app.geocode(location_query, addressdetails=True, language ="en", featuretype=featuretype)
             if res is None:
-                res = app.geocode(search_string, addressdetails=True, language ="en")
+                res = app.geocode(location_query, addressdetails=True, language ="en")
             return res
         except Exception:
             print("Retrying geocoding. Attempt number {}.".format(attempt))
             if attempt <= MAX_NUM_ATTEMPTS:
                 time.sleep(2**attempt)
-                self.fetch_data(search_string, attempt + 1, app)
+                self.fetch_data(location_query, attempt + 1, app)
             else:
                 print("TIME OUT")
                 raise Exception(res)
-            
+
     def get_geocoding_ents(self, search_string, app):
         """
         Makes single call to OSM and returns fields of interest.
@@ -323,7 +303,8 @@ class GeoNormalizer:
 
     def get_cached_and_new_searches(self, search_queries):
         # read cache here again
-        self.cache = self.load_cache(self.cache_fname)
+        if self.use_cache:
+            self.cache = self.load_cache(self.cache_fname)
 
         cached_results_list = [self.cache[k] for k in search_queries if k in self.cache]
         new_searches = list({k for k in search_queries if k is not None and k not in self.cache})
@@ -384,10 +365,6 @@ class GeoNormalizer:
 
         # Run the osm identification
         outputs = [self.normalize_country(entities.get('COUNTRY',None)) for entities in ner_to_process]
-
-        # Replace COUNTRY extracted in the NER dict...
-
-        # create search strings
 
         # Initialize the results structure for each item in text_list
         results = [{"raw_text": item["raw_text"], "span_entities": item["span_entities"], "ner": item["ner"],"ner_raw": item["ner_raw"], "osm":[]} for item in text_list]
