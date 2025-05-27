@@ -97,7 +97,7 @@ dense_linker = DenseLinker(data_source="ror")
 
 # Or with AffilGood
 from affilgood import AffilGood
-affil_good = AffilGood(entity_linkers='DenseLinker')  # Uses ROR by default
+affil_good = AffilGood(entity_linkers='Dense')  # Uses ROR by default
 ```
 
 ### WikiData

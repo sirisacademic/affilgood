@@ -38,7 +38,7 @@ affil_good = AffilGood(
 - **span_separator**: Character used to split spans if using `SimpleSpanIdentifier`. If provided, affiliation strings will be split on this character. Set to empty string to use model-based span identification.
 - **span_model_path**: Path to a custom span identification model. Defaults to `'SIRIS-Lab/affilgood-span-multilingual'`.
 - **ner_model_path**: Path to a custom NER model. Defaults to `'SIRIS-Lab/affilgood-NER-multilingual'`.
-- **entity_linkers**: Entity linker(s) to use. Can be a string ('Whoosh', 'S2AFF', 'DenseLinker'), a list of strings for multiple linkers, or a custom linker instance. Defaults to 'Whoosh'.
+- **entity_linkers**: Entity linker(s) to use. Can be a string ('Whoosh', 'S2AFF', 'Dense'), a list of strings for multiple linkers, or a custom linker instance. Defaults to 'Whoosh'.
 - **return_scores**: Whether to return confidence scores with predictions. Defaults to `False`.
 - **metadata_normalization**: Whether to enable location normalization. Defaults to `True`.
 - **use_cache_metadata_normalization**: Whether to use cached normalization data. Defaults to `True`.
@@ -188,7 +188,7 @@ from affilgood.entity_linking.entity_linker import EntityLinker
 
 # Initialize with multiple linkers
 linker = EntityLinker(
-    linkers=['Whoosh', 'DenseLinker'],  # Use multiple linkers
+    linkers=['Whoosh', 'Dense'],  # Use multiple linkers
     return_scores=True                  # Return confidence scores
 )
 

@@ -81,7 +81,7 @@ affil_good = AffilGood(
     ner_model_path='SIRIS-Lab/affilgood-NER-multilingual',
     
     # Entity Linking options
-    entity_linkers=['Whoosh', 'DenseLinker'],  # Use multiple linkers
+    entity_linkers=['Whoosh', 'Dense'],  # Use multiple linkers
     return_scores=True,  # Include confidence scores in results
     
     # Metadata normalization
@@ -101,7 +101,7 @@ affil_good = AffilGood(
 | `span_separator` | str | Character used to split text into spans. If provided, uses SimpleSpanIdentifier instead of model-based identification. | `''` (model-based) |
 | `span_model_path` | str | Path to the span identification model. | `'SIRIS-Lab/affilgood-span-multilingual'` |
 | `ner_model_path` | str | Path to the NER model. | `'SIRIS-Lab/affilgood-NER-multilingual'` |
-| `entity_linkers` | str/list | Entity linker(s) to use. Can be a string ('Whoosh', 'S2AFF', 'DenseLinker') or a list of strings for multiple linkers. | `'Whoosh'` |
+| `entity_linkers` | str/list | Entity linker(s) to use. Can be a string ('Whoosh', 'S2AFF', 'Dense') or a list of strings for multiple linkers. | `'Whoosh'` |
 | `return_scores` | bool | Whether to include confidence scores in results. | `False` |
 | `metadata_normalization` | bool | Whether to normalize location metadata. | `True` |
 | `use_cache_metadata_normalization` | bool | Whether to use cached normalization data. | `True` |

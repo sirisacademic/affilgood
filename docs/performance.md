@@ -497,10 +497,10 @@ For maximum accuracy:
 from affilgood import AffilGood
 from affilgood.entity_linking.dense_linker import DenseLinker
 from affilgood.entity_linking.whoosh_linker import WhooshLinker
-from affilgood.entity_linking.llm_reranker import LLMReranker
+from affilgood.entity_linking.direct_pair_reranker import DirectPairReranker
 
 # Configure reranker
-reranker = LLMReranker()
+reranker = DirectPairReranker()
 
 # Configure linkers
 dense_linker = DenseLinker(use_hnsw=True)

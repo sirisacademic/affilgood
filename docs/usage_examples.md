@@ -85,7 +85,7 @@ from affilgood import AffilGood
 affil_good = AffilGood(
     span_separator=';',  # Split spans by semicolons instead of using model
     ner_model_path='SIRIS-Lab/affilgood-NER-multilingual',
-    entity_linkers=['Whoosh', 'DenseLinker'],  # Use multiple linkers
+    entity_linkers=['Whoosh', 'Dense'],  # Use multiple linkers
     return_scores=True,  # Include confidence scores in results
     metadata_normalization=True,
     verbose=True,  # Enable detailed logging
@@ -134,7 +134,7 @@ from affilgood import AffilGood
 from affilgood.entity_linking.dense_linker import DenseLinker
 
 # Initialize AffilGood with Dense linker
-affil_good = AffilGood(entity_linkers='DenseLinker')
+affil_good = AffilGood(entity_linkers='Dense')
 
 # Or with custom Dense linker configuration
 dense_linker = DenseLinker(
@@ -179,7 +179,7 @@ from affilgood.entity_linking.whoosh_linker import WhooshLinker
 from affilgood.entity_linking.dense_linker import DenseLinker
 
 # Initialize AffilGood with multiple linkers
-affil_good = AffilGood(entity_linkers=['Whoosh', 'DenseLinker'])
+affil_good = AffilGood(entity_linkers=['Whoosh', 'Dense'])
 
 # Or with custom linker configurations
 whoosh_linker = WhooshLinker(threshold_score=0.3)
@@ -197,10 +197,10 @@ results = affil_good.process(affiliations)
 ```python
 from affilgood import AffilGood
 from affilgood.entity_linking.whoosh_linker import WhooshLinker
-from affilgood.entity_linking.llm_reranker import LLMReranker
+from affilgood.entity_linking.direct_pair_reranker import DirectPairReranker
 
 # Create a reranker
-reranker = LLMReranker()
+reranker = DirectPairReranker()
 
 # Configure Whoosh linker with reranker
 whoosh_linker = WhooshLinker(rerank=False)  # Disable built-in reranking
