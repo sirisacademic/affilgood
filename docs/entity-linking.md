@@ -36,6 +36,38 @@ The system uses a multi-stage approach:
 
 AffilGood provides several entity linking strategies, each with unique strengths:
 
+### Dense Linker (default retriever)
+
+The `DenseLinker` uses dense vector representations and semantic similarity for matching.
+
+**Key Features:**
+- Semantic understanding of organization names
+- Better handling of variations and translations
+- Support for multiple languages
+- Efficient search using HNSW indices
+
+**Example:**
+```python
+from affilgood.entity_linking.dense_linker import DenseLinker
+from affilgood.entity_linking.data_manager import DataManager
+
+data_manager = DataManager()
+dense_linker = DenseLinker(
+    data_manager=data_manager,
+    encoder_path=None,  # Uses default encoder
+    threshold_score=0.35,
+    use_hnsw=True,
+    data_source="ror"  # Can also use "wikidata" or custom sources
+)
+
+# Use directly
+results = dense_linker.get_single_prediction(organization)
+
+# Or with AffilGood
+from affilgood import AffilGood
+affil_good = AffilGood(entity_linkers='Dense')
+```
+
 ### Whoosh Linker
 
 The `WhooshLinker` uses the Whoosh full-text search engine to match organizations against an index.
@@ -97,38 +129,6 @@ from affilgood import AffilGood
 affil_good = AffilGood(entity_linkers='S2AFF')
 ```
 
-### Dense Linker
-
-The `DenseLinker` uses dense vector representations and semantic similarity for matching.
-
-**Key Features:**
-- Semantic understanding of organization names
-- Better handling of variations and translations
-- Support for multiple languages
-- Efficient search using HNSW indices
-
-**Example:**
-```python
-from affilgood.entity_linking.dense_linker import DenseLinker
-from affilgood.entity_linking.data_manager import DataManager
-
-data_manager = DataManager()
-dense_linker = DenseLinker(
-    data_manager=data_manager,
-    encoder_path=None,  # Uses default encoder
-    threshold_score=0.35,
-    use_hnsw=True,
-    data_source="ror"  # Can also use "wikidata" or custom sources
-)
-
-# Use directly
-results = dense_linker.get_single_prediction(organization)
-
-# Or with AffilGood
-from affilgood import AffilGood
-affil_good = AffilGood(entity_linkers='DenseLinker')
-```
-
 ## Combining Multiple Retrievers
 
 A powerful feature of AffilGood is the ability to combine results from multiple retrievers to improve accuracy. This approach leverages the strengths of different matching strategies.
@@ -139,13 +139,15 @@ from affilgood import AffilGood
 
 # Use multiple retrievers
 affil_good = AffilGood(
-    entity_linkers=['Whoosh', 'DenseLinker'],
+    entity_linkers=['Whoosh', 'Dense'],
     return_scores=True
 )
 
 # Process affiliations
 results = affil_good.process(affiliations)
 ```
+
+*This is currently possible only with WhooshLinker and DenseLinker (not with S2AFFLinker)* 
 
 ### How Combination Works
 
@@ -161,7 +163,7 @@ This approach is particularly effective for complex or ambiguous cases where a s
 
 AffilGood includes reranking mechanisms to improve the quality of entity linking results.
 
-### Direct Pair Reranker
+### Direct Pair Reranker (default reranker)
 
 The `DirectPairReranker` compares affiliation strings directly with candidate organizations.
 
@@ -322,7 +324,7 @@ class CustomDataSourceHandler(DataSourceHandler):
 from affilgood.entity_linking.entity_linker import EntityLinker
 
 linker = EntityLinker(
-    linkers=['Whoosh', 'DenseLinker'],  # Linkers to use
+    linkers=['Whoosh', 'Dense'],  # Linkers to use
     return_scores=True,                # Whether to return scores
     output_dir='output_chunks'         # Directory for partial results
 )
