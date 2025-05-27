@@ -12,19 +12,26 @@ This is the official repository for the paper ["AffilGood: Building reliable ins
 
 - **Modular Pipeline Architecture**: Separate components for span identification, named entity recognition, entity linking, and metadata normalization
 - **Multilingual Support**: Models trained on data in multiple languages
-- **Multiple Entity Linking Options**: Support for various linking strategies including Whoosh-based search and S2AFF integration
+- **Advanced Entity Linking**: Multiple linking strategies with combination of retrievers and reranking mechanisms
+- **Multiple Data Sources**: Support for ROR, WikiData, and custom data sources
 - **Location Normalization**: Integration with OpenStreetMap for standardizing geographic data
-- **Country Code Normalization**: Mapping of country names to standard codes
+- **Language Processing**: Automatic language detection and translation capabilities
+- **Performance Optimization**: Caching mechanisms and batch processing for efficient handling of large datasets
 
 ## 📚 Documentation
 
 For more detailed information about using and extending AffilGood, check out our documentation:
 
-- [AffilGood Modules](docs/modules.md) - Detailed reference for classes and methods in all modules
-- [Usage Examples](docs/usage-examples.md) - Code examples for different use cases
-- [Technical Overview](docs/technical-overview.md) - In-depth explanation of system architecture and design
-- [Entity Linking Extension Guide](docs/entity-linking-extension.md) - Guide for extending the entity linking module
-- [Contribution Guide](docs/contribution-guide.md) - Guidelines for contributing to the project
+- [Getting Started](docs/getting-started.md) - Installation and first steps
+- [Modules Reference](docs/modules.md) - Detailed reference for classes and methods
+- [Entity Linking](docs/entity-linking.md) - Guide to entity linking capabilities
+- [Data Sources](docs/data-sources.md) - Available data sources and customization
+- [Language Processing](docs/language-processing.md) - Multilingual support and translation
+- [Customization](docs/customization.md) - Extending the pipeline with custom components
+- [Performance](docs/performance.md) - Optimization and scaling strategies
+- [Usage Examples](docs/usage-examples.md) - Code examples for different scenarios
+- [Technical Overview](docs/technical-overview.md) - In-depth explanation of architecture
+- [Contribution Guide](docs/contribution-guide.md) - Guidelines for contributing
 
 ## 🛠️ Installation
 
@@ -45,15 +52,15 @@ pip install -r requirements.txt
 ```python
 from affilgood import AffilGood
 
-# Initialize with default settings (Whoosh linker)
+# Initialize with default settings
 affil_good = AffilGood()
 
 # Or customize components
 affil_good = AffilGood(
     span_separator='',  # Use model-based span identification
-    span_model_path='nicolauduran45/affilgood-span-v2',  # Custom span model
-    ner_model_path='nicolauduran45/affilgood-ner-multilingual-v2',  # Custom NER model
-    entity_linkers='Whoosh',  # Use Whoosh for entity linking ('S2AFF' also available)
+    span_model_path='SIRIS-Lab/affilgood-span-multilingual',  # Custom span model
+    ner_model_path='SIRIS-Lab/affilgood-NER-multilingual',  # Custom NER model
+    entity_linkers=['Whoosh', 'DenseLinker'],  # Use multiple linkers
     return_scores=True,  # Return confidence scores with predictions
     metadata_normalization=True,  # Enable location normalization
     verbose=False,  # Detailed logging
@@ -97,9 +104,14 @@ affilgood/
 │   ├── base_linker.py            # Base class for entity linkers
 │   ├── whoosh_linker.py          # Whoosh-based entity linker
 │   ├── s2aff_linker.py           # S2AFF-based entity linker
+│   ├── dense_linker.py           # Dense retrieval-based entity linker
 │   ├── base_reranker.py          # Base class for rerankers
+│   ├── direct_pair_reranker.py   # Direct pair matching reranker
 │   ├── llm_reranker.py           # LLM-based reranker for candidate selection
-│   └── constants.py              # Constants for entity linking
+│   ├── constants.py              # Constants for entity linking
+│   ├── wikidata_dump_generator.py # WikiData integration
+│   ├── llm_translator.py         # Translation capabilities
+│   └── __init__.py               # Data source registry and handlers
 ├── metadata_normalization/       # Metadata normalization module
 │   └── normalizer.py             # Location and country normalization
 └── utils/                        # Utility functions
@@ -112,16 +124,14 @@ affilgood/
 
 AffilGood uses several pre-trained models available on Hugging Face:
 
-- 🤗 [nicolauduran45/affilgood-ner-multilingual-v2](https://huggingface.co/nicolauduran45/affilgood-ner-multilingual-v2) - Multilingual NER model
-- 🤗 [nicolauduran45/affilgood-span-v2](https://huggingface.co/nicolauduran45/affilgood-span-v2) - Span identification model
-- 🤗 [SIRIS-Lab/affilgood-NER](https://huggingface.co/SIRIS-Lab/affilgood-NER) - English NER model
 - 🤗 [SIRIS-Lab/affilgood-NER-multilingual](https://huggingface.co/SIRIS-Lab/affilgood-NER-multilingual) - Multilingual NER model
-- 🤗 [SIRIS-Lab/affilgood-SPAN](https://huggingface.co/SIRIS-Lab/affilgood-span) - English span model
 - 🤗 [SIRIS-Lab/affilgood-span-multilingual](https://huggingface.co/SIRIS-Lab/affilgood-span-multilingual) - Multilingual span model
+- 🤗 [SIRIS-Lab/affilgood-NER](https://huggingface.co/SIRIS-Lab/affilgood-NER) - English NER model
+- 🤗 [SIRIS-Lab/affilgood-SPAN](https://huggingface.co/SIRIS-Lab/affilgood-span) - English span model
 - 🤗 [SIRIS-Lab/affilgood-affilRoBERTa](https://huggingface.co/SIRIS-Lab/affilgood-affilroberta) - RoBERTa adapted for affiliation data
 - 🤗 [SIRIS-Lab/affilgood-affilXLM](https://huggingface.co/SIRIS-Lab/affilgood-affilxlm) - XLM-RoBERTa adapted for affiliation data
 
-## 📊 Performance (from paper)
+## 📊 Performance
 
 Note: These results can be outdated as the pipeline is in development and new features are being included.
 
@@ -177,7 +187,7 @@ We welcome contributions to the AffilGood project! Instead of a single main bran
 - `develop`: Development and default branch for new features and bug fixes.
 - `main`: Production branch used to deploy the server components to the production environment.
 
-Please follow our [Contribution Guidelines](/docs/contribute.md) to participate in this project.
+Please follow our [Contribution Guidelines](docs/contribution-guide.md) to participate in this project.
 
 ## 📫 Contact
 
