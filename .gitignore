@@ -78,5 +78,7 @@ affilgood/entity_linking/S2AFF/data
 *BKP*
 *bkp*
 
-whoosh_index
-eval/
+whoosh_indices
+hnsw_indices
+
+

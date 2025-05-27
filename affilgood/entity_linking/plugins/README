@@ -1,0 +1,38 @@
+Adding New Data Sources
+To add a new data source:
+
+Create a new file in the plugins directory (e.g., plugins/new_source.py)
+Define a class that inherits from DataSourceHandler
+Implement all required methods
+Register it with @DataSourceRegistry.register
+Import the module to register the handler
+Use the source ID in data_sources and configure it in data_source_configs
+
+Then it can be used as follows:
+
+from affilgood import AffilGood
+# Import the handler to ensure it's registered
+import affilgood.entity_linking.plugins.spanish_hospitals
+
+affil = AffilGood(
+    entity_linkers=['Whoosh', 'Dense'],
+    data_sources='spanish_hospitals',  # Or ['ror', 'spanish_hospitals'] for multiple sources
+    verbose=True
+)
+
+# Or, optionally, passing the source configuration:
+# affil = AffilGood(
+#    entity_linkers=['Whoosh', 'Dense'],
+#    data_sources='spanish_hospitals',  # Or ['ror', 'spanish_hospitals'] for multiple sources
+#    data_source_configs={
+#        'spanish_hospitals': {
+#            'file_path': 'spanish_hospitals.xlsx', # Relative to path EL_DATA_PATH set in constants.py (e.g.: "entity_linking/data")
+#            'verbose': True,
+#            'force_rebuild_index': True,
+#        }
+#    },
+#    verbose=True
+#)
+
+# Use as normal
+results = affil.process(["Hospital García Orcoyen, Estella-Lizarra, Navarra"])
