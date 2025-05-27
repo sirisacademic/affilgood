@@ -127,7 +127,7 @@ result = affil_good.process([affiliation])
 # Print the result
 print(f"Spans: {result[0]['span_entities']}")
 print(f"Organizations: {[ner.get('ORG', []) for ner in result[0]['ner']]}")
-print(f"ROR IDs: {result[0]['ror']}")
+print(f"Entity Linking: {result[0]['entity_linking']}")
 ```
 
 ### Multiple Affiliations
@@ -153,7 +153,8 @@ for i, result in enumerate(results):
     print(f"\nAffiliation {i+1}: {result['raw_text']}")
     print(f"  Spans: {result['span_entities']}")
     print(f"  Organizations: {[ner.get('ORG', []) for ner in result['ner']]}")
-    print(f"  ROR IDs: {result['ror']}")
+    print(f"  Entity Linking: {result['entity_linking']}")
+    print("---")
 ```
 
 ## Step-by-Step Processing
@@ -183,9 +184,9 @@ print("Entities recognized:", entities[0]['ner'][0])
 normalized = affil_good.get_normalization(entities)
 print("Normalized locations:", normalized[0]['osm'][0])
 
-# Step 4: Link to ROR identifiers
+# Step 4: Link to organization identifiers
 linked = affil_good.get_entity_linking(normalized)
-print("ROR IDs:", linked[0]['ror'][0])
+print("Entity Linking Results:", linked[0]['entity_linking'])
 ```
 
 ## Understanding the Output
@@ -197,36 +198,141 @@ The output of the `process()` method is a list of dictionaries, one for each inp
 - `ner`: Named entities recognized in each span
 - `ner_raw`: Raw NER model output
 - `osm`: Normalized location information
-- `ror`: Research Organization Registry (ROR) identifiers
+- `entity_linking`: Organization identifiers from different data sources
+- `language_info`: Language detection and processing information
 
-Example output structure:
+### New Output Structure
+
+The entity linking results are now organized by data source:
+
+```python
+{
+    "entity_linking": {
+        "ror": {
+            "linked_orgs_spans": [
+                "Organization Name {https://ror.org/XXXXXX}:0.95",
+                ""  # Empty if no match for this span
+            ],
+            "linked_orgs": "Organization Name {https://ror.org/XXXXXX}:0.95"
+        },
+        "spanish_hospitals": {
+            "linked_orgs_spans": [
+                "",
+                "Hospital Name {https://www.sanidad.gob.es/...}:0.90"
+            ],
+            "linked_orgs": "Hospital Name {https://www.sanidad.gob.es/...}:0.90"
+        }
+        # Additional data sources as configured
+    }
+}
+```
+
+Example complete output structure:
 
 ```python
 [
     {
-        "raw_text": "Department of Computer Science, University of Oxford, Oxford, UK",
-        "span_entities": ["Department of Computer Science, University of Oxford, Oxford, UK"],
+        "raw_text": "Hospital del Mar, Barcelona; Department of Medicine, University Health Network, Mount Sinai Hospital, Toronto",
+        "span_entities": [
+            "Hospital del Mar, Barcelona",
+            "Department of Medicine, University Health Network, Mount Sinai Hospital, Toronto"
+        ],
         "ner": [
             {
-                "SUB": ["Department of Computer Science"],
-                "ORG": ["University of Oxford"],
-                "CITY": ["Oxford"],
-                "COUNTRY": ["UK"]
+                "ORG": ["Hospital del Mar"],
+                "CITY": ["Barcelona"]
+            },
+            {
+                "SUB": ["Department of Medicine", "University Health Network"],
+                "ORG": ["Mount Sinai Hospital"],
+                "CITY": ["Toronto"]
             }
         ],
-        "ner_raw": [...],  # Raw NER output
+        "ner_raw": [
+            # Raw NER output for each span
+        ],
         "osm": [
             {
-                "CITY": "Oxford",
-                "COUNTRY": "United Kingdom",
-                "COORDS": [51.7520209, -1.2577263],
-                "OSM_ID": "107775"
+                "CITY": "Barcelona",
+                "COUNTY": "Barcelonès",
+                "PROVINCE": "Barcelona", 
+                "STATE": "Catalonia",
+                "COUNTRY": "Spain",
+                "COORDS": "('41.3825802', '2.1770730')",
+                "OSM_ID": "347950"
+            },
+            {
+                "CITY": "Toronto",
+                "STATE_DISTRICT": "Golden Horseshoe",
+                "STATE": "Ontario",
+                "COUNTRY": "Canada", 
+                "COORDS": "('43.6534817', '-79.3839347')",
+                "OSM_ID": "324211"
             }
         ],
-        "ror": ["University of Oxford {https://ror.org/052gg0110}:0.95"]
-    },
-    # Additional results...
+        "entity_linking": {
+            "ror": {
+                "linked_orgs_spans": [
+                    "Hospital Del Mar {https://ror.org/03a8gac78}:0.95",
+                    "Mount Sinai Hospital {https://ror.org/05deks119}:0.90"
+                ],
+                "linked_orgs": "Hospital Del Mar {https://ror.org/03a8gac78}:0.95|Mount Sinai Hospital {https://ror.org/05deks119}:0.90"
+            },
+            "spanish_hospitals": {
+                "linked_orgs_spans": [
+                    "Hospital del Mar. {https://www.sanidad.gob.es/ciudadanos/centros.do?metodo=realizarDetalle&tipo=hospital&numero=080057}:0.96",
+                    ""
+                ],
+                "linked_orgs": "Hospital del Mar. {https://www.sanidad.gob.es/ciudadanos/centros.do?metodo=realizarDetalle&tipo=hospital&numero=080057}:0.96"
+            }
+        },
+        "language_info": {}
+    }
 ]
+```
+
+### Extracting Results
+
+To extract organization identifiers from the new format:
+
+```python
+def extract_organization_ids(result, data_source="ror"):
+    """Extract organization IDs from entity linking results."""
+    entity_linking = result.get('entity_linking', {})
+    source_results = entity_linking.get(data_source, {})
+    linked_orgs = source_results.get('linked_orgs', '')
+    
+    # Parse the pipe-separated results
+    organizations = []
+    if linked_orgs:
+        for org_entry in linked_orgs.split('|'):
+            if '{' in org_entry and '}' in org_entry:
+                # Extract the URL from the entry
+                url_start = org_entry.find('{') + 1
+                url_end = org_entry.find('}')
+                url = org_entry[url_start:url_end]
+                
+                # Extract score if present
+                score = None
+                if ':' in org_entry[url_end:]:
+                    score = float(org_entry.split(':')[-1])
+                
+                organizations.append({
+                    'url': url,
+                    'score': score,
+                    'name': org_entry[:url_start-1].strip()
+                })
+    
+    return organizations
+
+# Example usage
+results = affil_good.process(affiliations)
+for result in results:
+    ror_orgs = extract_organization_ids(result, "ror")
+    hospital_orgs = extract_organization_ids(result, "spanish_hospitals")
+    
+    print(f"ROR organizations: {ror_orgs}")
+    print(f"Spanish hospitals: {hospital_orgs}")
 ```
 
 ## Next Steps

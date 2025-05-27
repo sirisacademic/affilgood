@@ -434,7 +434,7 @@ normalized = normalizer.normalize(entities)
                 "STATE": "State name",
                 "REGION": "Region name",
                 "COUNTRY": "Normalized country name",
-                "COORDS": [latitude, longitude],
+                "COORDS": "('latitude', 'longitude')",
                 "OSM_ID": "OpenStreetMap ID"
             },
             ...
@@ -446,6 +446,8 @@ normalized = normalizer.normalize(entities)
 
 ### Entity Linking Output
 
+The entity linking output now uses a nested structure organized by data source:
+
 ```python
 [
     {
@@ -454,17 +456,73 @@ normalized = normalizer.normalize(entities)
         "ner": [...],
         "ner_raw": [...],
         "osm": [...],
-        "ror": [
-            "Organization Name {https://ror.org/XXXXXX}:0.95",
-            ...
-        ]
+        "entity_linking": {
+            "ror": {
+                "linked_orgs_spans": [
+                    "Organization Name {https://ror.org/XXXXXX}:0.95",
+                    ""  # Empty string if no match for this span
+                ],
+                "linked_orgs": "Organization Name {https://ror.org/XXXXXX}:0.95"
+            },
+            "spanish_hospitals": {
+                "linked_orgs_spans": [
+                    "",
+                    "Hospital Name {https://www.sanidad.gob.es/...}:0.90"
+                ],
+                "linked_orgs": "Hospital Name {https://www.sanidad.gob.es/...}:0.90"
+            }
+            # Additional data sources as configured
+        },
+        "language_info": {}
     },
     ...
 ]
 ```
 
-If `return_scores=False`, the ROR results will not include confidence scores:
+### Understanding Entity Linking Results
+
+Each data source in the `entity_linking` object contains:
+
+- **`linked_orgs_spans`**: A list with one entry per span, showing the best match for each span (empty string if no match)
+- **`linked_orgs`**: A pipe-separated string of all matches across all spans, excluding empty matches
+
+The format for each organization match is:
+```
+"Organization Name {URL}:confidence_score"
+```
+
+If `return_scores=False`, the confidence scores will not be included:
+```
+"Organization Name {URL}"
+```
+
+### Extracting Results from New Format
+
+To work with the new nested structure:
 
 ```python
-"ror": ["Organization Name {https://ror.org/XXXXXX}", ...]
+def extract_ror_ids(result):
+    """Extract ROR IDs from the new entity linking format."""
+    entity_linking = result.get('entity_linking', {})
+    ror_results = entity_linking.get('ror', {})
+    linked_orgs = ror_results.get('linked_orgs', '')
+    
+    ror_ids = []
+    if linked_orgs:
+        for org_entry in linked_orgs.split('|'):
+            if 'https://ror.org/' in org_entry:
+                # Extract ROR ID from URL
+                start = org_entry.find('https://ror.org/') + len('https://ror.org/')
+                end = org_entry.find('}', start)
+                if end > start:
+                    ror_id = org_entry[start:end]
+                    ror_ids.append(ror_id)
+    
+    return ror_ids
+
+# Example usage
+results = affil_good.process(affiliations)
+for result in results:
+    ror_ids = extract_ror_ids(result)
+    print(f"ROR IDs found: {ror_ids}")
 ```
