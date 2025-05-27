@@ -5,7 +5,7 @@ with open("requirements.txt") as f:
     required = f.read().splitlines()
 
 setup(
-    name="affilgood",  # Replace with your project name
+    name="affilgood",
     version="0.1",
     packages=find_packages(),
     install_requires=required,  # Load dependencies from requirements.txt
@@ -18,6 +18,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.9",  # Adjust Python version as needed
+    python_requires=">=3.9",
 )
 
