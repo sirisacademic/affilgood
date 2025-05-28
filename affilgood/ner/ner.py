@@ -1,3 +1,4 @@
+# ner.py
 import sys
 import os
 import json
@@ -12,27 +13,42 @@ import numpy as np
 def clean_whitespaces(text):
   return re.sub(r'\s+', ' ', str(text).strip())
 
-DEFAULT_NER_MODEL = "SIRIS-Lab/affilgood-NER-multilingual"
+#DEFAULT_NER_MODEL = "SIRIS-Lab/affilgood-NER-multilingual"
+DEFAULT_NER_MODEL = "nicolauduran45/affilgood-ner-multilingual-v2"
+
+# NER entity Labels. TODO: Unify with entity_linking/constants.py
+MAINORG_NER_LABEL = 'ORG'
+SUB_NER_LABEL = 'SUB'
+SUBORG_NER_LABEL = 'SUBORG'
+CITY_NER_LABEL = 'CITY'
+REGION_NER_LABEL = 'REGION'
+COUNTRY_NER_LABEL = 'COUNTRY'
+
+# Entities containing words with these prefixes and labeled as "SUB" are changed to "SUBORG"
+SUB_TO_SUBORG = ["cent", "inst", "lab"]
 
 class NER:
     def __init__(
         self,
-        model_path=DEFAULT_NER_MODEL,
+        model_path=None,
         device=0,
         chunk_size=10000,
         max_parallel=10,
         batch_size=64,
         #threshold_score=0.75,
         fix_predicted_words=True,
+        sub_to_suborg=True,
         title_case=False,
         verbose=False
     ):
     
+        self.model_path = DEFAULT_NER_MODEL if model_path is None else model_path
+    
         # Initialize pipeline model and tokenizer
         self.model = pipeline(
             "ner",
-            model=AutoModelForTokenClassification.from_pretrained(model_path),
-            tokenizer=AutoTokenizer.from_pretrained(model_path),
+            model=AutoModelForTokenClassification.from_pretrained(self.model_path),
+            tokenizer=AutoTokenizer.from_pretrained(self.model_path),
             aggregation_strategy="simple",
             device=device
         )
@@ -48,6 +64,7 @@ class NER:
         self.batch_size = batch_size
         #self.threshold_score = threshold_score
         self.fix_predicted_words = fix_predicted_words
+        self.sub_to_suborg = sub_to_suborg
         self.title_case = title_case
 
     def refine_spans_by_geography(self, ner_results):
@@ -88,12 +105,12 @@ class NER:
                 geo_entities = []
                 
                 for entity in span_ner_raw:
-                    if entity['entity_group'] == 'ORG':
+                    if entity['entity_group'] == MAINORG_NER_LABEL:
                         org_entities.append(entity)
-                    elif entity['entity_group'] == 'CITY':
+                    elif entity['entity_group'] == CITY_NER_LABEL:
                         city_entities.append(entity)
                         geo_entities.append(entity)
-                    elif entity['entity_group'] == 'COUNTRY':
+                    elif entity['entity_group'] == COUNTRY_NER_LABEL:
                         country_entities.append(entity)
                         geo_entities.append(entity)
                 
@@ -115,8 +132,8 @@ class NER:
                     next_entity = all_entities[i + 1]
                     
                     # Check for transitions that suggest a new organization entry
-                    is_geo_entity = current['entity_group'] in ['CITY', 'COUNTRY']
-                    is_next_org = next_entity['entity_group'] == 'ORG' or next_entity['entity_group'] == 'SUB'
+                    is_geo_entity = current['entity_group'] in [CITY_NER_LABEL, COUNTRY_NER_LABEL]
+                    is_next_org = next_entity['entity_group'] == MAINORG_NER_LABEL or next_entity['entity_group'] == SUBORG_NER_LABEL
                     has_gap = next_entity['start'] - current['end'] > 3  # More permissive gap
                     
                     if is_geo_entity and is_next_org and has_gap:
@@ -213,16 +230,18 @@ class NER:
         
         return refined_results
 
-    def recognize_entities(self, text_list):
+    def recognize_entities(self, text_list, batch_size=None):
         """
-        Process a list of text data for span identification.
-
         Parameters:
-        - text_list (list of dict): List of dictionaries, each containing "raw_text" and "span_entities".
+        - text_list (list of dict): Each dict should contain "raw_text" and "span_entities".
+        - batch_size (int, optional): Overrides the default batch size for model inference.
 
         Returns:
-        - List of dicts: Each dict contains the original text, span entities, and ner entities grouped by entity group for each span entity.
+        - list of dicts: NER-annotated results for each span entity in the input.
         """
+
+        batch_size = batch_size if batch_size is not None else self.batch_size
+        
         # Flatten all span_entities into a single list for batch processing
         spans_to_process = []
         span_index_map = []  # Track the position in text_list and span_entities index
@@ -238,7 +257,10 @@ class NER:
                 span_index_map.append((idx, span_idx))  # Record which item and span this belongs to
 
         # Run the span identification model on the entire batch
-        outputs = list(self.model(KeyDataset(Dataset.from_dict({"text": spans_to_process}), "text")))
+        outputs = list(self.model(
+            KeyDataset(Dataset.from_dict({"text": spans_to_process}), "text"),
+            batch_size=batch_size
+        ))
 
         # Initialize the results structure for each item in text_list
         results = [{"raw_text": item["raw_text"], "span_entities": item["span_entities"], "ner": [], "ner_raw": []} for item in text_list]
@@ -249,6 +271,8 @@ class NER:
             entities = [entry for entry in entities if entry['word']]
             if self.fix_predicted_words:
                 entities = self.fix_words(span, entities)
+            if self.sub_to_suborg:
+                entities = self.change_suborg(entities)
             
             # Clean and merge spans
             cleaned_entities = self.combine_entities(entities)
@@ -278,7 +302,16 @@ class NER:
         results = self.refine_spans_by_geography(results)
 
         return results
-       
+      
+    def change_suborg(self, entities):
+        """
+        Changes label from SUB to SUBORG in particular cases.
+        """
+        for entity in entities:
+            if entity["entity_group"] == SUB_NER_LABEL and any([word.startswith(pref) for word in entity["word"].lower().split() for pref in SUB_TO_SUBORG]):
+                entity["entity_group"] = SUBORG_NER_LABEL
+        return entities
+      
     def fix_words(self, raw_text, entities):
         """
         Adjusts entity text based on character offsets and fixes missing closing parentheses at the end of entities.

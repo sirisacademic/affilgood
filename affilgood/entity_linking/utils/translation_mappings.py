@@ -1,8 +1,6 @@
 import os
 from unidecode import unidecode
 
-DIR_PATH = os.path.dirname(os.path.realpath(__file__))
-
 # Group translations by category for controlled multi-pass replacement
 INSTITUTION_TYPE_TRANSLATIONS = {
     'Universität': 'University',
