@@ -3,7 +3,7 @@ import sys
 from .base_linker import BaseLinker
 from .constants import *
 from .data_manager import DataManager
-from .constants import THRESHOLD_SCORE_FILTER_FIRSTAGE_EL, THRESHOLD_SCORE_RERANKED_EL, NUM_CANDIDATES_TO_RERANK
+from .constants import *
 
 # Ensure S2AFF is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), S2AFF_PATH)))
@@ -11,7 +11,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), S2AFF
 class S2AFFLinker(BaseLinker):
     """S2AFF-based entity linker."""
     
-    def __init__(self, data_manager=None, ror_dump_path=None, debug=False):
+    def __init__(
+                self,
+                data_manager=None,
+                ror_dump_path=None,
+                return_num_candidates=NUM_CANDIDATES_TO_RETURN,
+                debug=False,
+                rerank=True):
         """
         Initialize the S2AFF linker.
         
@@ -23,6 +29,8 @@ class S2AFFLinker(BaseLinker):
         self.data_manager = data_manager
         self.ror_dump_path = ror_dump_path
         self.debug = debug
+        self.rerank = rerank
+        self.return_num_candidates = return_num_candidates
         
         # These will be initialized later
         self.ror_index = None
@@ -56,16 +64,16 @@ class S2AFFLinker(BaseLinker):
         # Initialize S2AFF specific components
         try:
             # Import S2AFF modules here to avoid circular imports
-            from s2aff.ror import RORIndex
-            from s2aff.model import PairwiseRORLightGBMReranker
-            
             # Load ROR index
             print(f"Loading ROR index from {self.ror_dump_path}...")
+            from s2aff.ror import RORIndex
             self.ror_index = RORIndex(self.ror_dump_path)
             
             # Load pairwise model for S2AFF
-            print(f'Getting pairwise ROR LightGBM reranker...')
-            self.pairwise_model = PairwiseRORLightGBMReranker(self.ror_index)
+            if self.rerank:
+                print(f'Getting pairwise ROR LightGBM reranker...')
+                from s2aff.model import PairwiseRORLightGBMReranker
+                self.pairwise_model = PairwiseRORLightGBMReranker(self.ror_index)
             
             self.is_initialized = True
             print("S2AFF linker initialized successfully")
@@ -86,8 +94,11 @@ class S2AFFLinker(BaseLinker):
         if not self.ror_dump_path:
             raise FileNotFoundError(f"Failed to get required ROR dump.")
             
-    def get_single_prediction(self, organization):
-        """Get S2AFF predictions for one input organization."""
+    def get_single_prediction(self, organization, num_candidates=None):
+        """Get S2AFF predictions for one input organization, returning multiple candidates."""
+        if num_candidates is None:
+            num_candidates = self.return_num_candidates
+        
         affiliation = []
         suborg = organization.get('suborg', '')
         org = organization['main']
@@ -98,17 +109,21 @@ class S2AFFLinker(BaseLinker):
         if location:
             affiliation.append(location)
         affiliation_string = ', '.join(affiliation)
+        
         if self.debug:
             print(f"=> Getting prediction for {affiliation_string}")
-        predicted_id, predicted_name, predicted_score = self._get_from_cache(affiliation_string)
-        if predicted_id is not None:
-            if self.debug:
-                print(f"=> Prediction in cache: ID: {predicted_id} - NAME: {predicted_name} - SCORE: {predicted_score}")
-            return predicted_id, predicted_name, predicted_score
+        
+        # Check cache first
+        cached_results = self._get_predictions_from_cache(affiliation_string, num_candidates)
+        if cached_results is not None:
+            return cached_results
+        
         # If not in cache, get candidates
         if self.debug:
             print(f"Retrieving first-stage candidates for org: {org}, location: {location}, suborg: {[suborg]}")
+        
         first_stage_candidates, first_stage_scores = self.ror_index.get_candidates_from_main_affiliation(org, location, [suborg])
+        
         # Filter candidates by score
         len_filtered_scores = len([
             s for s in first_stage_scores
@@ -116,34 +131,67 @@ class S2AFFLinker(BaseLinker):
         ])
         candidates = first_stage_candidates[:len_filtered_scores][:NUM_CANDIDATES_TO_RERANK]
         scores = first_stage_scores[:len_filtered_scores][:NUM_CANDIDATES_TO_RERANK]
+        
         if self.debug:
             candidates_with_scores = [f"{candidates[i]}:{scores[i]:.4f}" for i in range(len(candidates))]
             print(f"Candidates first stage filtered (threshold {THRESHOLD_SCORE_FILTER_FIRSTAGE_EL}, num. candidates:{NUM_CANDIDATES_TO_RERANK}): {candidates_with_scores}")
-            #print(f"Scores first stage filtered: {scores}")
+        
+        # Initialize the results list
+        candidates_list = []
+        
         if candidates:
-            # Rerank candidates
-            if self.debug:
-                print(f"Retrieving re-ranked candidates for affiliation_string: {affiliation_string}, candidates: {candidates}, scores: {scores}")
-            reranked_candidates, reranked_scores = self.pairwise_model.predict(
-                affiliation_string, candidates, scores
-            )
-            if self.debug:
-                reranked_candidates_with_scores = [f"{reranked_candidates[i]}:{reranked_scores[i]:.4f}" for i in range(len(reranked_candidates))]
-                print(f"Re-ranked candidates: {reranked_candidates_with_scores}")
-            # Process top candidate
-            top_rr_score = reranked_scores[0]
-            if top_rr_score >= THRESHOLD_SCORE_RERANKED_EL:
-                top_rr_ror_idx = reranked_candidates[0]
-                if (top_rr_ror_idx in self.ror_index.ror_dict and
-                    ROR_ID_FIELD in self.ror_index.ror_dict[top_rr_ror_idx]):
-                    predicted_id = self.ror_index.ror_dict[top_rr_ror_idx][ROR_ID_FIELD]
-                    predicted_score = top_rr_score
-                    predicted_name = self.ror_index.ror_dict[predicted_id][ROR_NAME_FIELD] if ROR_NAME_FIELD in self.ror_index.ror_dict[predicted_id] else predicted_id
-                    # Update cache
-                    self._update_cache(affiliation_string, predicted_id, predicted_name, predicted_score)
-        if self.debug:
-            print(f"=> Prediction (threshold {THRESHOLD_SCORE_RERANKED_EL}): ID: {predicted_id} - NAME: {predicted_name} - SCORE: {predicted_score}")
-        return predicted_id, predicted_name, predicted_score
+            # Add both raw candidates and reranked candidates based on need
+            
+            # First, get raw candidates
+            for i, (ror_idx, score) in enumerate(zip(candidates[:num_candidates], scores[:num_candidates])):
+                if ror_idx in self.ror_index.ror_dict and ROR_ID_FIELD in self.ror_index.ror_dict[ror_idx]:
+                    raw_id = self.ror_index.ror_dict[ror_idx][ROR_ID_FIELD]
+                    raw_score = score
+                    raw_name = self.ror_index.ror_dict[raw_id][ROR_NAME_FIELD] if ROR_NAME_FIELD in self.ror_index.ror_dict[raw_id] else raw_id
+                    
+                    # For combined retrieval mode, we could just return these candidates
+                    if not hasattr(self, 'rerank') or not self.rerank:
+                        candidates_list.append((raw_id, raw_name, raw_score))
+            
+            # If we want reranking and don't have enough candidates yet, get reranked ones
+            if (hasattr(self, 'rerank') and self.rerank) or not candidates_list:
+                # Rerank candidates
+                if self.debug:
+                    print(f"Retrieving re-ranked candidates for affiliation_string: {affiliation_string}, candidates: {candidates}, scores: {scores}")
+                
+                reranked_candidates, reranked_scores = self.pairwise_model.predict(
+                    affiliation_string, candidates, scores
+                )
+                
+                if self.debug:
+                    reranked_candidates_with_scores = [f"{reranked_candidates[i]}:{reranked_scores[i]:.4f}" for i in range(len(reranked_candidates))]
+                    print(f"Re-ranked candidates: {reranked_candidates_with_scores}")
+                
+                # Process all candidates up to num_candidates
+                candidates_list = []  # Reset if we're doing reranking
+                for i, (ror_idx, score) in enumerate(zip(reranked_candidates[:num_candidates], reranked_scores[:num_candidates])):
+                    if score >= THRESHOLD_SCORE_RERANKED_EL:
+                        if (ror_idx in self.ror_index.ror_dict and
+                            ROR_ID_FIELD in self.ror_index.ror_dict[ror_idx]):
+                            predicted_id = self.ror_index.ror_dict[ror_idx][ROR_ID_FIELD]
+                            predicted_score = score
+                            predicted_name = self.ror_index.ror_dict[predicted_id][ROR_NAME_FIELD] if ROR_NAME_FIELD in self.ror_index.ror_dict[predicted_id] else predicted_id
+                            
+                            # Add to candidates list
+                            candidates_list.append((
+                                predicted_id,
+                                predicted_name,
+                                predicted_score
+                            ))
+        
+        # If we have no results, return a single None tuple
+        if not candidates_list:
+            candidates_list = [(None, None, 0.0)]
+        
+        # Update cache
+        self._update_predictions_cache(affiliation_string, candidates_list)
+        
+        return candidates_list
       
 
 

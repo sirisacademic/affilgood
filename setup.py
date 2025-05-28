@@ -1,23 +1,21 @@
 from setuptools import setup, find_packages
 
-# Read dependencies from requirements.txt
-with open("requirements.txt") as f:
-    required = f.read().splitlines()
+# Read the requirements from the requirements.txt file
+try:
+    with open("requirements.txt", "r") as f:
+        requirements = f.read().splitlines()
+except FileNotFoundError:
+    requirements = []
 
 setup(
     name="affilgood",
-    version="0.1",
-    packages=find_packages(),
-    install_requires=required,  # Load dependencies from requirements.txt
-    description="AffilGood provides annotated datasets and tools to improve the accuracy of attributing scientific works to research organizations, especially in multilingual and complex contexts.",
-    author="Nicolau Duran-Silva, Pablo Accuosto, Berta Grimau",
-    author_email="nicolau.duransilva@sirisacademic.com, pablo.accuosto@sirisacademic.com, berta.grimau@sirisacademic.com ",
+    version="3.0.0",
+    author="Nicolau Duran-Silva, Pablo Accuosto",
+    author_email="nicolau.duransilva@sirisacademic.com, pablo.accuosto@sirisacademic.com",
+    description="AffilGood provides tools for institution name disambiguation in scientific literature.",
     url="https://github.com/sirisacademic/affilgood",
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-    ],
+    packages=find_packages(),  # Automatically find packages within affilgood/
+    install_requires=requirements,  # Load dependencies from requirements.txt
     python_requires=">=3.9",
+    include_package_data=True,  # Include additional files specified in MANIFEST.in
 )
-
