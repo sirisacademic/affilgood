@@ -29,7 +29,7 @@ DEFAULT_BATCH_SIZE = 8  # Default batch size for GPU processing
 # External API configuration
 USE_EXTERNAL_API = False  # Set to True to use external API instead of local model
 EXTERNAL_API_URL = "https://api.together.xyz/v1/chat/completions"
-EXTERNAL_API_KEY = "c9bd0e95399a1bf9defad8ae8ab1b37db4c706b9e13a2e3e04bc33dac363845e"
+EXTERNAL_API_KEY = "..." # Replace with valid API key.
 EXTERNAL_API_MAX_RETRIES = 3
 EXTERNAL_API_RETRY_DELAY = 2  # seconds
 
