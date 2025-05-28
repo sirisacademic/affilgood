@@ -1,19 +1,11 @@
 import os 
 import pandas as pd
 from unidecode import unidecode
-
-DIR_PATH = os.path.dirname(os.path.realpath(__file__))
-
-# File with alternative names for countries and language codes.
-COUNTRIES_FILE = f'{DIR_PATH}/countries_languages.tsv'
-ABBREVIATIONS_FILE = f'{DIR_PATH}/abbreviations.tsv'
-COUNTRY_ENG_NAME_COL = 'country_exonym'
-COUNTRY_ALT_NAMES_COL = 'country_alternative'
-COUNTRY_LANG_CODES_COL = 'lang_codes'
-COUNTRY_COL_SEPARATOR = '|'
+from ..constants import *
+import numpy as np
 
 # Load countries.
-countries = pd.read_csv(COUNTRIES_FILE, sep='\t')
+countries = pd.read_csv(COUNTRY_LANGS_FILE, sep='\t')
 countries.fillna('', inplace=True)
 countries.drop_duplicates(subset='country_code', inplace=True)
 countries.set_index('country_code', inplace=True)
@@ -120,4 +112,40 @@ def get_stopwords(language='u'):
   return set(stopwords[language])
 
 
+def json_serializable(obj):
+    """Convert NumPy types to Python native types for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [json_serializable(x) for x in obj]
+    elif isinstance(obj, tuple):
+        return tuple(json_serializable(i) for i in obj)
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return json_serializable(obj.tolist())
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    else:
+        return obj
 
+def contains_non_latin(text):
+    """
+    Check if the text contains non-Latin alphabetic characters.
+    
+    Args:
+        text (str): The text to analyze
+        
+    Returns:
+        bool: True if text contains non-Latin characters, False otherwise
+    """
+    return any(
+        char.isalpha() and 
+        not (
+            ('A' <= char.upper() <= 'Z') or  # Basic Latin
+            ('\u00C0' <= char <= '\u024F')   # Extended Latin (Latin-1 Supplement and Latin Extended A/B)
+        ) 
+        for char in text
+    )
