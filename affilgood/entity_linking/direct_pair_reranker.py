@@ -147,14 +147,14 @@ class DirectPairReranker:
         else:
             # No path provided - try default paths for each source
             for source in self.supported_data_sources:
-                default_path = os.path.join(HNSW_INDEX_PATH, f"{source}_org_index_meta.json")
+                default_path = os.path.join(HNSW_INDICES_PATH, source, "org_index_meta.json")
                 if os.path.exists(default_path):
                     self._load_organization_info(default_path, source)
                     if debug:
                         logger.info(f"Using default metadata path for {source}: {default_path}")
                 else:
                     # Try alternative path format
-                    alt_path = os.path.join(HNSW_INDEX_PATH, source, "org_index_meta.json")
+                    alt_path = os.path.join(HNSW_INDICES_PATH, "{source}_org_index_meta.json")
                     if os.path.exists(alt_path):
                         self._load_organization_info(alt_path, source)
                         if debug:
