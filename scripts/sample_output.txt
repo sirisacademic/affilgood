@@ -1,0 +1,271 @@
+Using data sources: ['ror']
+Language preprocessing is disabled
+Initializing span identifier
+Initialized span identifier: nicolauduran45/affilgood-span-v2
+Initializing NER
+Initialized NER: nicolauduran45/affilgood-ner-multilingual-v2
+Initializing entity linkers: ['Dense'] for data sources: ['ror']
+Initializing EntityLinker with data sources: ['ror']
+Initializing linkers for data source: ror
+  Initializing linker: Dense
+Created DirectPairReranker instance with supported data sources: ['ror']
+Initializing normalizer: <affilgood.metadata_normalization.normalizer.GeoNormalizer object at 0x7f4d182c7970>
+
+=========== PROCESSING ===========
+Language preprocessing completed in 0.00s
+Identifying spans for 1 texts...
+Span identification completed in 0.17s
+Identified 1 spans
+Recognizing entities...
+Entity recognition completed in 0.01s
+Normalizing entities...
+Entity normalization completed in 0.00s
+Linking entities...
+
+Processing data source: ror
+Processing with Dense
+Saved 72 entries to cache file: /home/pablo/affilgood/affilgood/entity_linking/linker_cache/DenseLinker_ror_cache.pkl
+
+_apply_reranking: second pass: added: Roma Tre University {https://ror.org/05vf0dg29}:0.95. score 0.953125 above threshold 0.6. best_score: 0.953125
+
+_apply_reranking: second pass: added: Istituto Nazionale di Fisica Nucleare, Sezione di Roma Tre {https://ror.org/009wnjh50}:0.97. score 0.96875 above threshold 0.6. best_score: 0.96875
+Entity linking completed in 0.00s
+[
+    {
+        "raw_text": "Dipartimento di Fisica, Università di Roma Tre and Istituto Nazionale di Fisica Nucleare sezione di Roma Tre, Via Vasca Navale 84, 00146 Roma, Italy",
+        "span_entities": [
+            "Dipartimento di Fisica, Università di Roma Tre and Istituto Nazionale di Fisica Nucleare sezione di Roma Tre, Via Vasca Navale 84, 00146 Roma, Italy"
+        ],
+        "ner": [
+            {
+                "SUB": [
+                    "Dipartimento di Fisica"
+                ],
+                "ORG": [
+                    "Università di Roma Tre",
+                    "Istituto Nazionale di Fisica Nucleare sezione di Roma Tre"
+                ],
+                "ADDRESS": [
+                    "Via Vasca Navale 84"
+                ],
+                "POSTALCODE": [
+                    "00146"
+                ],
+                "CITY": [
+                    "Roma"
+                ],
+                "COUNTRY": [
+                    "Italy"
+                ]
+            }
+        ],
+        "ner_raw": [
+            [
+                {
+                    "entity_group": "SUB",
+                    "score": 0.9994518756866455,
+                    "word": "Dipartimento di Fisica",
+                    "start": 0,
+                    "end": 22
+                },
+                {
+                    "entity_group": "ORG",
+                    "score": 0.9996855854988098,
+                    "word": "Università di Roma Tre",
+                    "start": 24,
+                    "end": 46
+                },
+                {
+                    "entity_group": "ORG",
+                    "score": 0.9983338117599487,
+                    "word": "Istituto Nazionale di Fisica Nucleare sezione di Roma Tre",
+                    "start": 51,
+                    "end": 108
+                },
+                {
+                    "entity_group": "ADDRESS",
+                    "score": 0.9995071291923523,
+                    "word": "Via Vasca Navale 84",
+                    "start": 110,
+                    "end": 129
+                },
+                {
+                    "entity_group": "POSTALCODE",
+                    "score": 0.9980952739715576,
+                    "word": "00146",
+                    "start": 131,
+                    "end": 136
+                },
+                {
+                    "entity_group": "CITY",
+                    "score": 0.9983300566673279,
+                    "word": "Roma",
+                    "start": 137,
+                    "end": 141
+                },
+                {
+                    "entity_group": "COUNTRY",
+                    "score": 0.9994838237762451,
+                    "word": "Italy",
+                    "start": 143,
+                    "end": 148
+                }
+            ]
+        ],
+        "osm": [
+            {
+                "CITY": "Rome",
+                "COUNTY": "Roma Capitale",
+                "STATE": "Lazio",
+                "COUNTRY": "Italy",
+                "COORDS": "('41.8933203', '12.4829321')",
+                "OSM_ID": "41485"
+            }
+        ],
+        "entity_linking": {
+            "ror": {
+                "linked_orgs_spans": [
+                    "Roma Tre University {https://ror.org/05vf0dg29}:0.95|Istituto Nazionale di Fisica Nucleare, Sezione di Roma Tre {https://ror.org/009wnjh50}:0.97"
+                ],
+                "linked_orgs": "Roma Tre University {https://ror.org/05vf0dg29}:0.95|Istituto Nazionale di Fisica Nucleare, Sezione di Roma Tre {https://ror.org/009wnjh50}:0.97",
+                "detailed_orgs": [
+                    [
+                        {
+                            "mention": "Università di Roma Tre",
+                            "candidates_above_threshold": [
+                                {
+                                    "rank": 1,
+                                    "id": "https://ror.org/05vf0dg29",
+                                    "name": "Roma Tre University",
+                                    "location": "Rome, Italy",
+                                    "initial_retriever_score": 0.9468,
+                                    "final_retriever_score": 0.99,
+                                    "reranker_score": 0.9531,
+                                    "explanation": "Reranked from 0.9900 to 0.9531 using direct pair matching (threshold: 0.60)",
+                                    "source": "dense",
+                                    "data_source": "ror"
+                                },
+                                {
+                                    "rank": 2,
+                                    "id": "https://ror.org/009wnjh50",
+                                    "name": "Istituto Nazionale di Fisica Nucleare, Sezione di Roma Tre",
+                                    "location": "Rome, Italy",
+                                    "initial_retriever_score": 0.6176,
+                                    "final_retriever_score": 0.8884,
+                                    "reranker_score": 0.8867,
+                                    "explanation": "Reranked from 0.8884 to 0.8867 using direct pair matching",
+                                    "source": "dense",
+                                    "data_source": "ror"
+                                },
+                                {
+                                    "rank": 3,
+                                    "id": "https://ror.org/037263487",
+                                    "name": "Università degli Studi Internazionali di Roma",
+                                    "location": "Rome, Italy",
+                                    "initial_retriever_score": 150.1642,
+                                    "final_retriever_score": 0.7752,
+                                    "reranker_score": 0.582,
+                                    "explanation": "Reranked from 0.7752 to 0.5820 using direct pair matching",
+                                    "source": "whoosh",
+                                    "data_source": "ror"
+                                },
+                                {
+                                    "rank": 4,
+                                    "id": "https://ror.org/011at3t25",
+                                    "name": "European University of Rome",
+                                    "location": "Rome, Italy",
+                                    "initial_retriever_score": 0.6257,
+                                    "final_retriever_score": 0.6257,
+                                    "reranker_score": 0.582,
+                                    "explanation": "Reranked from 0.6257 to 0.5820 using direct pair matching",
+                                    "source": "dense",
+                                    "data_source": "ror"
+                                },
+                                {
+                                    "rank": 5,
+                                    "id": "https://ror.org/02p77k626",
+                                    "name": "University of Rome Tor Vergata",
+                                    "location": "Rome, Italy",
+                                    "initial_retriever_score": 0.6064,
+                                    "final_retriever_score": 0.7498,
+                                    "reranker_score": 0.4609,
+                                    "explanation": "Reranked from 0.7498 to 0.4609 using direct pair matching",
+                                    "source": "dense",
+                                    "data_source": "ror"
+                                }
+                            ]
+                        },
+                        {
+                            "mention": "Istituto Nazionale di Fisica Nucleare sezione di Roma Tre",
+                            "candidates_above_threshold": [
+                                {
+                                    "rank": 1,
+                                    "id": "https://ror.org/009wnjh50",
+                                    "name": "Istituto Nazionale di Fisica Nucleare, Sezione di Roma Tre",
+                                    "location": "Rome, Italy",
+                                    "initial_retriever_score": 0.9155,
+                                    "final_retriever_score": 0.99,
+                                    "reranker_score": 0.9688,
+                                    "explanation": "Reranked from 0.9900 to 0.9688 using direct pair matching (threshold: 0.60)",
+                                    "source": "dense",
+                                    "data_source": "ror"
+                                },
+                                {
+                                    "rank": 2,
+                                    "id": "https://ror.org/025rrx658",
+                                    "name": "Istituto Nazionale di Fisica Nucleare, Roma Tor Vergata",
+                                    "location": "Rome, Italy",
+                                    "initial_retriever_score": 0.5905,
+                                    "final_retriever_score": 0.99,
+                                    "reranker_score": 0.7539,
+                                    "explanation": "Reranked from 0.9900 to 0.7539 using direct pair matching",
+                                    "source": "dense",
+                                    "data_source": "ror"
+                                },
+                                {
+                                    "rank": 3,
+                                    "id": "https://ror.org/05eva6s33",
+                                    "name": "Istituto Nazionale di Fisica Nucleare, Sezione di Roma I",
+                                    "location": "Rome, Italy",
+                                    "initial_retriever_score": 0.6647,
+                                    "final_retriever_score": 0.99,
+                                    "reranker_score": 0.75,
+                                    "explanation": "Reranked from 0.9900 to 0.7500 using direct pair matching",
+                                    "source": "dense",
+                                    "data_source": "ror"
+                                },
+                                {
+                                    "rank": 4,
+                                    "id": "https://ror.org/005ta0471",
+                                    "name": "Istituto Nazionale di Fisica Nucleare",
+                                    "location": "Rome, Italy",
+                                    "initial_retriever_score": 0.6747,
+                                    "final_retriever_score": 0.99,
+                                    "reranker_score": 0.7461,
+                                    "explanation": "Reranked from 0.9900 to 0.7461 using direct pair matching",
+                                    "source": "dense",
+                                    "data_source": "ror"
+                                },
+                                {
+                                    "rank": 5,
+                                    "id": "https://ror.org/05vf0dg29",
+                                    "name": "Roma Tre University",
+                                    "location": "Rome, Italy",
+                                    "initial_retriever_score": 0.5741,
+                                    "final_retriever_score": 0.5741,
+                                    "reranker_score": 0.543,
+                                    "explanation": "Reranked from 0.5741 to 0.5430 using direct pair matching",
+                                    "source": "dense",
+                                    "data_source": "ror"
+                                }
+                            ]
+                        }
+                    ]
+                ]
+            }
+        },
+        "language_info": {}
+    }
+]
+==================================
+

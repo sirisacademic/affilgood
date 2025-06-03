@@ -617,7 +617,7 @@ class DirectPairReranker:
             "status": "Enabled"
         }
 
-    def _generate_cache_key(self, organization: Dict[str, Any], source_linker: str, data_source: str = "ror") -> str:
+    def _generate_cache_key(self, organization: Dict[str, Any], source_linker: str, data_source: str = "ror", active_linkers: List[str] = None) -> str:
         """
         Generate a more comprehensive cache key for an organization.
         
@@ -625,6 +625,7 @@ class DirectPairReranker:
             organization: The query organization dictionary
             source_linker: Name of the source linker
             data_source: Data source being used
+            active_linkers: List of currently active linkers
             
         Returns:
             A unique cache key string
@@ -642,10 +643,16 @@ class DirectPairReranker:
         
         # Add source linker and data source to make the key even more specific
         source_parts = [p for p in [org_key, source_linker, data_source] if p]
+        
+        # Add active linkers to ensure cache isolation between different linker combinations
+        if active_linkers:
+            linkers_str = '+'.join(sorted(active_linkers))  # Sort for consistency
+            source_parts.append(linkers_str)
+        
         composite_key = '_'.join(source_parts)
         
         # Sanitize key to remove problematic characters
-        sanitized_key = re.sub(r'[^\w\-\.]', '_', composite_key)
+        sanitized_key = re.sub(r'[^\w\-\.\+]', '_', composite_key)
         
         return sanitized_key
 
@@ -658,7 +665,8 @@ class DirectPairReranker:
         return_scores: bool = True,
         show_progress_bar: bool = False,
         return_best_variant: bool = True,
-        data_source: str = "ror"
+        data_source: str = "ror",
+        active_linkers: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Rerank candidate organizations using multiple query variants.
@@ -684,8 +692,8 @@ class DirectPairReranker:
         # Get source linker
         source_linker = candidates[0].get('source') if candidates else None
         
-        # Generate comprehensive cache key that includes data source
-        cache_key = self._generate_cache_key(organization, source_linker, data_source)
+        # Generate comprehensive cache key that includes data source and active linkers
+        cache_key = self._generate_cache_key(organization, source_linker, data_source, active_linkers)
         
         # Check cache if enabled and if cache exists
         if use_cache and hasattr(self, 'reranking_cache') and self.reranking_cache:
