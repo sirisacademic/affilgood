@@ -32,13 +32,19 @@ logger.setLevel(logging.INFO)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), S2AFF_PATH)))
 from s2aff.consts import PATHS
 
-
-
 class DataManager:
     """Manages data updates, S3 syncing, and file resolution for entity linking."""
 
     def __init__(self, verbose=False):
         self.verbose = verbose
+        
+        # Create ROR-specific data directory using the constant
+        self.ror_data_path = os.path.abspath(ROR_DATA_DIR)
+        if not os.path.exists(self.ror_data_path):
+            logger.info(f"Creating ROR data directory: {self.ror_data_path}")
+            os.makedirs(self.ror_data_path, exist_ok=True)
+        
+        # Keep S2AFF data path for S2AFF-specific files only
         self.data_s2aff_path = os.path.abspath(os.path.join(os.path.dirname(__file__), S2AFF_PATH, "data"))
         if not os.path.exists(self.data_s2aff_path):
             logger.info(f"Creating directory: {self.data_s2aff_path}")
@@ -75,11 +81,14 @@ class DataManager:
         paginator = s3.get_paginator("list_objects_v2")
         response_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
         return [obj for page in response_iterator if "Contents" in page for obj in page["Contents"]]
-
+        
     def should_skip_s3_key(self, s3_key):
-        """Determines if an S3 key should be skipped based on OMIT_S2AFF substrings."""
+        """Determines if an S3 key should be skipped. ROR data is now handled separately."""
         if not s3_key:
-            return False  # If the key is None, it cannot match OMIT_S2AFF
+            return False
+        # Always skip ROR data since it's now handled by shared ROR management
+        if 'ror-data' in s3_key:
+            return True
         return any(substring in s3_key for substring in OMIT_S2AFF)
 
     def download_file(self, url_or_bucket, key_or_path, local_path, is_s3=False, omit_s2aff=False):
@@ -126,18 +135,22 @@ class DataManager:
                 PATHS[key] = f"https://s3-us-west-2.amazonaws.com/ai2-s2-research-public/s2aff-release/{os.path.basename(path)}"
 
     def ensure_s2aff_files(self):
-        """Ensures all required files in PATHS exist locally."""
+        """Ensures all required S2AFF-specific files exist locally. ROR data is handled separately."""
         for key, path in PATHS.items():
             if path.startswith("http"):
                 local_path = os.path.join(self.data_s2aff_path, os.path.basename(path))
                 if not os.path.exists(local_path):
-                    logger.info(f"Ensuring file: {key}, URL: {path}")
+                    logger.info(f"Ensuring S2AFF file: {key}, URL: {path}")
                     self.download_file(path, os.path.basename(path), local_path, omit_s2aff=True)
             elif not os.path.exists(path):
-                logger.error(f"File {path} is missing but not resolvable to a URL.")
-                raise FileNotFoundError(f"Required file {key} not found at {path}.")
-        # Update OpenAlex work counts
+                # Only raise error for non-ROR files since ROR is handled separately
+                if 'ror-data' not in path:
+                    logger.error(f"File {path} is missing but not resolvable to a URL.")
+                    raise FileNotFoundError(f"Required S2AFF file {key} not found at {path}.")
+        
+        # Update OpenAlex work counts (S2AFF-specific)
         self.update_openalex_works_counts()
+
 
     def format_id_url(self, org_id, source):
         """
@@ -318,31 +331,32 @@ class DataManager:
 
     # ROR DATA MANAGEMENT
     def get_local_ror_dumps(self):
-        """Returns a sorted list of local ROR dump files."""
-        files = [os.path.join(self.data_s2aff_path, f) for f in os.listdir(self.data_s2aff_path) if "ror-data.json" in f]
+        """Returns a sorted list of local ROR dump files from the shared ROR directory."""
+        files = [os.path.join(self.ror_data_path, f) for f in os.listdir(self.ror_data_path) if "ror-data.json" in f]
         return sorted(files, reverse=True)
 
     def get_latest_ror(self, ror_dump_path=None):
-        """Fetches the latest ROR dump or returns the most recent local one."""
+        """Fetches the latest ROR dump or returns the most recent local one from shared location."""
         if ror_dump_path is None and ROR_DUMP_PATH:
             ror_dump_path = ROR_DUMP_PATH
             if os.path.exists(ror_dump_path):
                 logger.info(f"Using existing ROR dump from {ror_dump_path}")
                 return ror_dump_path
-            elif os.path.exists(os.path.join(self.data_s2aff_path, ror_dump_path)):
-                return os.path.join(self.data_s2aff_path, ror_dump_path)
+            elif os.path.exists(os.path.join(self.ror_data_path, ror_dump_path)):
+                return os.path.join(self.ror_data_path, ror_dump_path)
             else:
-                logger.warning(f"ROR dump not found in {ror_dump_path} nor {os.path.join(self.data_s2aff_path, ror_dump_path)}.")
+                logger.warning(f"ROR dump not found in {ror_dump_path} nor {os.path.join(self.ror_data_path, ror_dump_path)}.")
+        
         logger.info(f"Fetching latest ROR dump from {ROR_DUMP_LINK}")
         try:
             response = requests.get(ROR_DUMP_LINK)
             response.raise_for_status()
             download_url = response.json()["hits"]["hits"][0]["files"][0]["links"]["self"]
             file_name = response.json()["hits"]["hits"][0]["files"][0]["key"]
-            file_path = os.path.join(self.data_s2aff_path, file_name)
+            file_path = os.path.join(self.ror_data_path, file_name)  # Use ROR data path
             self.download_file(download_url, file_path, file_path)
             with zipfile.ZipFile(file_path, "r") as zip_ref:
-                zip_ref.extractall(self.data_s2aff_path)
+                zip_ref.extractall(self.ror_data_path)  # Extract to ROR data path
             return self.get_local_ror_dumps()[0]
         except Exception as e:
             logger.error(f"Failed to fetch ROR dump: {e}")

@@ -935,6 +935,10 @@ class EntityLinker:
                         # Use top candidate as is
                         reranked_candidates = candidates
                     else:
+                        # Get list of active linkers for this data source
+                        source_linkers = self.linkers.get(data_source, {})
+                        active_linkers = list(source_linkers.keys())
+                    
                         # Apply reranking
                         try:
                             reranked_candidates = self.reranker.rerank(
@@ -942,7 +946,8 @@ class EntityLinker:
                                 candidates,
                                 top_k=self.num_candidates_to_return,
                                 return_scores=True,
-                                data_source=data_source  # Pass data source to reranker
+                                data_source=data_source,
+                                active_linkers=active_linkers
                             )
                             
                             # Add explanation
