@@ -142,6 +142,9 @@ UPDATE_OPENALEX_WORK_COUNTS_OLDER_THAN = 30
 # ROR
 ROR_URL = 'https://ror.org/'
 
+# ROR data configuration (moved from S2AFF-specific location)
+ROR_DATA_DIR = f'{EL_DATA_PATH}/ror'
+
 # If path left empty download always the latest one.
 # Name file in S2AFF/data or full path.
 ROR_DUMP_PATH = ''
