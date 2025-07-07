@@ -128,7 +128,9 @@ class DenseLinker(BaseLinker):
                 # Load the index and metadata
                 self.hnsw_index, self.hnsw_metadata = self.data_manager.load_hnsw_index(
                     hnsw_index_dir=hnsw_index_dir,
-                    source=self.data_source  # Use the stored data_source
+                    source=self.data_source,
+                    org_types=self.org_types,
+                    countries=self.countries
                 )
                 
                 if self.hnsw_index and self.hnsw_metadata:
@@ -139,9 +141,9 @@ class DenseLinker(BaseLinker):
                     self.use_hnsw = False
                     logger.info("Failed to load HNSW index. Falling back to PyTorch search.")
                     
-            except ImportError:
+            except ImportError as e:
                 self.use_hnsw = False
-                logger.info("hnswlib not installed. Falling back to PyTorch search.")
+                logger.info(f"Exception when importing hnswlib: {e}. Falling back to PyTorch search.")
       
     def _load_organizations(self):
         """Load and encode organizations from the specified data source."""
