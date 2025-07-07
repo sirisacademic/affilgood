@@ -81,4 +81,9 @@ affilgood/entity_linking/S2AFF/data
 whoosh_indices
 hnsw_indices
 
+affenv/
+wikidata_cache/
+sparql_cache.sqlite
+build/
 
+generate_wikidata_index.py
