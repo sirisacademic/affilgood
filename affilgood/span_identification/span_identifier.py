@@ -9,7 +9,7 @@ import torch
 from typing import List, Dict, Union, Any
 
 # DEFAULT MODEL
-DEFAULT_SPAN_MODEL = 'nicolauduran45/affilgood-span-v2'
+DEFAULT_SPAN_MODEL = 'nicolauduran45/affilgood-span-multilingual-v2'
 
 def clean_whitespaces(text):
     return re.sub(r'\s+', ' ', str(text).strip())

@@ -35,17 +35,15 @@ For more detailed information about using and extending AffilGood, check out our
 
 ## 🛠️ Installation
 
-```bash
-pip install affilgood
-```
-
-Or for development:
+We recommend installing AffilGood in **editable mode** to allow development and live code changes:
 
 ```bash
 git clone https://github.com/sirisacademic/affilgood.git
 cd affilgood
-pip install -r requirements.txt
+pip install -e .
 ```
+
+> ⚠️ Note: Installing without `-e` (editable mode) may result in import errors due to how nested modules are organized.
 
 ## 🚀 Quick Start
 
@@ -196,3 +194,54 @@ For further information, please contact <nicolau.duransilva@sirisacademic.com>.
 ## ⚖️ License
 
 This work is distributed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+
+
+## 🧪 Troubleshooting
+
+### ❗ Issue: `ImportError` when using `hnswlib`
+
+If you see an error like:
+
+```
+ImportError: ...libstdc++.so.6: version `GLIBCXX_3.4.32' not found
+```
+
+This means your system is using an outdated version of the C++ standard library (`libstdc++.so.6`), or a conflicting version from Anaconda.
+
+#### ✅ Solution 1: Use the system version of `libstdc++`
+
+Ensure you're using the correct library version. You can override Anaconda's version by setting this before running Python:
+
+```bash
+export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
+```
+
+Or temporarily launch Python with a clean environment:
+
+```bash
+LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu python
+```
+
+#### ✅ Solution 2: Update `libstdc++`
+
+You can update the system library via:
+
+```bash
+sudo apt update
+sudo apt install libstdc++6
+```
+
+Check that the required version is available:
+
+```bash
+strings /usr/lib/x86_64-linux-gnu/libstdc++.so.6 | grep GLIBCXX_3.4.32
+```
+
+#### ✅ Solution 3: Rebuild `hnswlib` using your current compiler
+
+```bash
+pip uninstall hnswlib
+pip install --no-binary :all: hnswlib
+```
+
+This ensures the library is built using your system’s standard C++ runtime.
