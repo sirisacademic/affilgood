@@ -383,7 +383,7 @@ class DataManager:
         """
         # Handle default parameters
         if org_types is None:
-            org_types = 'all'
+            org_types = 'short'
         if countries is None:
             countries = 'all'
             
