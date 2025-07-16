@@ -35,8 +35,9 @@ from s2aff.consts import PATHS
 class DataManager:
     """Manages data updates, S3 syncing, and file resolution for entity linking."""
 
-    def __init__(self, verbose=False):
+    def __init__(self, verbose=False, device=None):
         self.verbose = verbose
+        self.device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
         
         # Create ROR-specific data directory using the constant
         self.ror_data_path = os.path.abspath(ROR_DATA_DIR)
@@ -200,18 +201,13 @@ class DataManager:
         """
         Get or create an index for a specific data source.
         
-        Args:
-            source: Data source identifier ('ror', 'wikidata', or plugin source)
-            indices_type: Type of index to create ('whoosh' or 'hnsw')
-            org_types: Organization types to include (for filtering WikiData)
-            countries: Countries to include (for filtering WikiData)
-            force_rebuild: Whether to force rebuilding the index
-            encoder_path: Path to encoder model (for HNSW indices)
-            use_wikidata_labels_with_ror: Whether to enrich ROR organizations with WikiData labels
-            **kwargs: Additional parameters for plugin handlers
-            
         Returns:
-            str: Path to the index
+            str: Path to the index (even if empty)
+            
+        Raises:
+            ValueError: For invalid parameters or configuration errors
+            FileNotFoundError: For missing required files
+            RuntimeError: For system/network errors
         """
         # Build configuration dictionary for handlers
         config = kwargs.get('config', {})
@@ -291,40 +287,55 @@ class DataManager:
         elif source == 'wikidata':
             # For WikiData, use the existing retrieval function
             org_data = self.get_wikidata_organizations(org_types, countries)
+
+            # Handle the case where no organizations are found (returns None)
+            if org_data is None:
+                # This means no organizations were found with the specified filters
+                # Create an empty DataFrame to represent this valid empty result
+                org_data = pd.DataFrame()  # Empty DataFrame
         else:
             logger.error(f"Unknown source: {source}")
             return None
         
-        # Check if we have data to index
-        if org_data is None or (isinstance(org_data, pd.DataFrame) and org_data.empty):
-            logger.error(f"No data available for {source} index creation")
-            return None
+        # Handle legitimate empty datasets vs errors
+        if isinstance(org_data, pd.DataFrame) and org_data.empty:
+            logger.info(f"No organizations found for {source} with specified filters. Creating empty index.")
+            # Create empty index structure - this is a valid scenario
+            
+        elif isinstance(org_data, list) and len(org_data) == 0:
+            logger.info(f"No organizations found for {source} with specified filters. Creating empty index.")
+            # Create empty index structure - this is a valid scenario
+            
+        elif org_data is None or (isinstance(org_data, dict) and len(org_data) == 0):
+            # This catches None, empty dict, etc. - these are errors
+            raise RuntimeError(f"No data available for {source} index creation due to system error")
+
+        # If we get here, org_data has content (DataFrame with rows, non-empty list, etc.)
         
-        # Create the index
+        # Create the index (even if empty)
         success = False
         if indices_type == 'whoosh':
             success = self.create_whoosh_index(
                 org_data, 
                 index_path, 
                 source=source, 
-                use_wikidata_labels_with_ror=use_wikidata_labels_with_ror
+                use_wikidata_labels_with_ror=use_wikidata_labels_with_ror,
+                allow_empty=True
             )
         elif indices_type == 'hnsw':
-            # Pass encoder_path and use_wikidata_labels_with_ror to create_hnsw_index
             success = self.create_hnsw_index(
                 org_data, 
                 index_path, 
                 source=source, 
                 encoder_path=encoder_path if encoder_path else ENCODER_DEFAULT_MODEL,
-                use_wikidata_labels_with_ror=use_wikidata_labels_with_ror
+                use_wikidata_labels_with_ror=use_wikidata_labels_with_ror,
+                allow_empty=True
             )
         else:
-            logger.error(f"Unknown indices type: {indices_type}")
-            return None
+            raise ValueError(f"Unknown indices type: {indices_type}")
         
         if not success:
-            logger.error(f"Failed to create {source} {indices_type} index")
-            return None
+            raise RuntimeError(f"Failed to create {source} {indices_type} index")
         
         return index_path
 
@@ -911,7 +922,7 @@ class DataManager:
         
         return wikidata_labels
 
-    def create_whoosh_index(self, data, index_dir, source='ror', use_wikidata_labels_with_ror=False):
+    def create_whoosh_index(self, data, index_dir, source='ror', use_wikidata_labels_with_ror=False, allow_empty=False):
         """
         Create a Whoosh index from a list of organizations with standardized fields.
         
@@ -920,15 +931,21 @@ class DataManager:
             index_dir: Directory to store the index
             source: Data source identifier ('ror', 'wikidata', etc.)
             use_wikidata_labels_with_ror: Whether to enrich ROR organizations with WikiData labels
+            allow_empty: Whether to create a valid empty index for empty datasets
             
         Returns:
             bool: True if successful, False otherwise
         """
         from whoosh.index import create_in
         
-        if data is None or (isinstance(data, pd.DataFrame) and data.empty):
-            logger.error("No organization data provided for Whoosh index creation")
-            return False
+        # Handle empty datasets
+        if data is None or (isinstance(data, pd.DataFrame) and data.empty) or (isinstance(data, list) and len(data) == 0):
+            if allow_empty:
+                logger.info(f"Creating empty Whoosh index for {source} with specified filters")
+                return self._create_empty_whoosh_index(index_dir, source, use_wikidata_labels_with_ror)
+            else:
+                logger.error("No organization data provided for Whoosh index creation")
+                return False
             
         # Create the index directory if it doesn't exist
         os.makedirs(index_dir, exist_ok=True)
@@ -1031,8 +1048,58 @@ class DataManager:
             traceback.print_exc()
             return False
 
+    def _create_empty_whoosh_index(self, index_dir, source, use_wikidata_labels_with_ror=False):
+        """
+        Create an empty but valid Whoosh index structure.
+        
+        Args:
+            index_dir: Directory to store the index
+            source: Data source identifier
+            use_wikidata_labels_with_ror: Whether WikiData labels were requested
+            
+        Returns:
+            bool: True if successful
+        """
+        from whoosh.index import create_in
+        
+        try:
+            # Create the index directory if it doesn't exist
+            os.makedirs(index_dir, exist_ok=True)
+            
+            # Get standardized schema
+            schema = self.get_standardized_schema()
+            
+            # Create empty index
+            ix = create_in(index_dir, schema)
+            writer = ix.writer()
+            
+            # Commit empty index (this creates the necessary index files)
+            logger.info("Creating empty Whoosh index...")
+            writer.commit()
+            
+            # Save metadata for empty index
+            metadata = {
+                "source": source,
+                "indices_type": "whoosh",
+                "created_at": datetime.now().isoformat(),
+                "organization_count": 0,
+                "use_wikidata_labels_with_ror": use_wikidata_labels_with_ror,
+                "empty_index": True  # Flag to indicate this is an empty index
+            }
+            self.save_index_metadata(index_dir, metadata)
+            
+            logger.info(f"Created empty Whoosh index at {index_dir}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error creating empty Whoosh index: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     # HNSW INDEX METHODS 
-    def create_hnsw_index(self, data, index_dir, encoder_path=ENCODER_DEFAULT_MODEL, source='ror', use_wikidata_labels_with_ror=False):
+    def create_hnsw_index(self, data, index_dir, encoder_path=ENCODER_DEFAULT_MODEL, source='ror', 
+                          use_wikidata_labels_with_ror=False, allow_empty=False):
         """
         Create an HNSW index from a list of organizations.
         
@@ -1042,19 +1109,26 @@ class DataManager:
             encoder_path: Path to the encoder model
             source: Data source identifier ('ror', 'wikidata', etc.)
             use_wikidata_labels_with_ror: Whether to enrich ROR organizations with WikiData labels
+            allow_empty: Whether to create a valid empty index for empty datasets
             
         Returns:
             bool: True if successful, False otherwise
         """
+
         try:
             import hnswlib
         except ImportError:
             logger.error("Failed to import hnswlib. Please install with 'pip install hnswlib'")
             return False
         
+        # Handle empty datasets
         if data is None or (isinstance(data, pd.DataFrame) and data.empty) or (isinstance(data, list) and len(data) == 0):
-            logger.error("No organization data provided for HNSW index creation")
-            return False
+            if allow_empty:
+                logger.info(f"Creating empty HNSW index for {source} with specified filters")
+                return self._create_empty_hnsw_index(index_dir, source, encoder_path)
+            else:
+                logger.error("No organization data provided for HNSW index creation")
+                return False
         
         # Create directory if it doesn't exist
         os.makedirs(index_dir, exist_ok=True)
@@ -1063,7 +1137,7 @@ class DataManager:
         try:
             from sentence_transformers import SentenceTransformer, util
             logger.info(f"Loading encoder model: {encoder_path}")
-            encoder = SentenceTransformer(encoder_path)
+            encoder = SentenceTransformer(encoder_path, device=self.device)
             
             # Add special tokens if needed
             if hasattr(encoder, 'tokenizer') and all(token not in encoder.tokenizer.vocab for token in SPECIAL_TOKENS):
@@ -1272,6 +1346,45 @@ class DataManager:
             traceback.print_exc()
             return False
 
+    def _create_empty_hnsw_index(self, index_dir, source, encoder_path):
+        """
+        Create an empty but valid HNSW index structure.
+        """
+        os.makedirs(index_dir, exist_ok=True)
+        
+        # Create metadata for empty index
+        metadata = {
+            "data_source": source,
+            "encoder_path": encoder_path,
+            "created_at": datetime.now().isoformat(),
+            "vector_dim": 0,  # Will be set when first embeddings are added
+            "hnsw_m": HNSW_M,
+            "hnsw_ef_construction": HNSW_EF_CONSTRUCTION,
+            "hnsw_ef_search": HNSW_EF_SEARCH,
+            "num_orgs": 0,
+            "num_embeddings": 0,
+            "embedding_to_org_mapping": {},
+            "org_data": [],
+            "empty_index": True  # Flag to indicate this is an empty index
+        }
+        
+        # Save metadata
+        meta_file = os.path.join(index_dir, "org_index_meta.json")
+        with open(meta_file, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, indent=2)
+        
+        # Save standard metadata
+        self.save_index_metadata(index_dir, {
+            "source": source,
+            "indices_type": "hnsw",
+            "created_at": datetime.now().isoformat(),
+            "organization_count": 0,
+            "encoder_path": encoder_path,
+            "empty_index": True
+        })
+        
+        logger.info(f"Created empty HNSW index at {index_dir}")
+        return True
 
     def load_hnsw_index(self, hnsw_index_dir=None, source='ror', org_types=None, countries=None):
         """
@@ -1299,15 +1412,30 @@ class DataManager:
         index_file = os.path.join(hnsw_index_dir, "org_index.bin")
         meta_file = os.path.join(hnsw_index_dir, "org_index_meta.json")
         
-        if not os.path.exists(index_file) or not os.path.exists(meta_file):
-            logger.error(f"HNSW index files not found at {hnsw_index_dir}")
+        # Check if metadata file exists first
+        if not os.path.exists(meta_file):
+            logger.error(f"HNSW metadata file not found at {hnsw_index_dir}")
+            return None, None
+        
+        # Load metadata to check if this is an empty index
+        try:
+            with open(meta_file, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+        except Exception as e:
+            logger.error(f"Error reading HNSW metadata file: {e}")
+            return None, None
+        
+        # Check if this is an intentionally empty index
+        if metadata.get("empty_index", False):
+            logger.info(f"Found empty HNSW index at {hnsw_index_dir} (no organizations match the specified filters)")
+            return None, metadata
+        
+        # For non-empty indices, check if binary index file exists
+        if not os.path.exists(index_file):
+            logger.error(f"HNSW binary index file not found at {index_file} (expected for non-empty index)")
             return None, None
         
         try:
-            # Load metadata
-            with open(meta_file, 'r', encoding='utf-8') as f:
-                metadata = json.load(f)
-            
             # Get vector dimension from metadata
             vector_dim = metadata.get("vector_dim")
             if not vector_dim:

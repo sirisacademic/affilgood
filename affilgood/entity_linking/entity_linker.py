@@ -43,6 +43,7 @@ class EntityLinker:
             output_dir=OUTPUT_PARTIAL_CHUNKS,
             batch_size=32,
             data_sources=["ror"],
+            device=None,
             use_wikidata_labels_with_ror=False,
             wikidata_org_types=None,
             wikidata_countries=None,
@@ -94,6 +95,8 @@ class EntityLinker:
         # Store configurations
         self.data_source_configs = data_source_configs or {}
         
+        self.device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
+        
         self.use_wikidata_labels_with_ror = use_wikidata_labels_with_ror
         
         # For backward compatibility, store WikiData parameters directly
@@ -114,7 +117,7 @@ class EntityLinker:
                     print(f"  {source} configuration: {self.data_source_configs[source]}")
         
         # Initialize data manager
-        self.data_manager = DataManager(verbose=self.verbose)
+        self.data_manager = DataManager(verbose=self.verbose, device=self.device)
         
         # Initialize linkers and reranker
         self._initialize_linkers(linkers)
@@ -234,6 +237,7 @@ class EntityLinker:
                                                         threshold_score=self.linker_threshold,
                                                         return_num_candidates=self.num_candidates_to_return if not self.rerank else self.num_candidates_to_rerank,
                                                         data_source=data_source,
+                                                        device=self.device,
                                                         **source_params)
                     else:
                         raise ValueError(f"Unknown linker type: {linker}")
@@ -786,7 +790,7 @@ class EntityLinker:
                         if self.verbose:
                             threshold_explanation = f"below adjusted threshold {adjusted_threshold:.2f}" + (
                                 " (non-Latin characters detected, original: {self.final_threshold:.2f})" if has_non_latin else "")
-                            top_candidate["explanation"] = best_candidate["explanation"].split("(threshold")[0] + f" ({threshold_explanation})"
+                            top_candidate["explanation"] = top_candidate["explanation"].split("(threshold")[0] + f" ({threshold_explanation})"
                             print(f"_format_without_reranking: Candidate {top_candidate.get('name', 'Unknown')} with score {score:.2f} {threshold_explanation}")
                         continue
                         

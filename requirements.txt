@@ -11,6 +11,10 @@ hnswlib
 SPARQLWrapper
 pycountry
 requests_cache
+langdetect
+translators
+country-converter
+einops
 
 # NLP and ML dependencies
 spacy>=3.4.0
