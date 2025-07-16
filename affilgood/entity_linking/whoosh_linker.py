@@ -118,9 +118,26 @@ class WhooshLinker(BaseLinker):
                             data = json.load(f)
                             self.data_manager.create_whoosh_index(data, self.index_dir, source=self.data_source)
                 elif self.data_source == 'wikidata':
-                    data = self.data_manager.get_wikidata_organizations()
-                    if data is not None:
+                    data = self.data_manager.get_wikidata_organizations(
+                        org_types=self.org_types,
+                        countries=self.countries
+                    )
+                    
+                    # Handle empty results gracefully
+                    if data is None or data.empty:
+                        if self.debug:
+                            print(f"No WikiData organizations found with specified filters for {self.data_source}")
+                        # Create empty index - this will now work with allow_empty=True
+                        self.data_manager.create_whoosh_index(
+                            data, 
+                            self.index_dir, 
+                            source=self.data_source,
+                            allow_empty=True  # Allow empty index creation
+                        )
+                    else:
                         self.data_manager.create_whoosh_index(data, self.index_dir, source=self.data_source)
+
+
                 else:
                     raise ValueError(f"Unknown data source: {self.data_source}")
 
@@ -137,8 +154,28 @@ class WhooshLinker(BaseLinker):
         # Set up the Whoosh index
         if self.debug:
             print(f"WhooshLinker: opening self.index_dir={self.index_dir}")
+        
+        # Handle case where index might be empty
+        try:
+            self.ix = index.open_dir(self.index_dir)
             
-        self.ix = index.open_dir(self.index_dir)
+            # Check if this is an empty index by looking at metadata
+            try:
+                metadata = self.data_manager.get_index_metadata(self.index_dir)
+                if metadata and metadata.get("empty_index", False):
+                    if self.debug:
+                        print(f"WhooshLinker: Opened empty index for {self.data_source}")
+                    # Set flag to handle empty index gracefully in queries
+                    self.empty_index = True
+                else:
+                    self.empty_index = False
+            except Exception as e:
+                if self.debug:
+                    print(f"Could not read index metadata: {e}")
+                self.empty_index = False
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to open Whoosh index at {self.index_dir}: {e}")
         
         # Update field names to use source-agnostic versions
         self.name_parser = MultifieldParser(["name", "name_normalized"], schema=self.ix.schema, group=AndGroup)
@@ -1088,6 +1125,12 @@ class WhooshLinker(BaseLinker):
         
     def get_candidate_matches(self, organization):
         """Perform search using name, aliases, parent, and location."""
+
+        # Handle empty index case
+        if hasattr(self, 'empty_index') and self.empty_index:
+            if self.debug:
+                print(f"WhooshLinker: Index is empty for {self.data_source}, returning no candidates")
+            return []
 
         org_name = organization["main"]
         suborg = organization.get("suborg", "")
