@@ -39,7 +39,8 @@ class DenseLinker(BaseLinker):
         data_source="ror",
         org_types=None,     # WikiData org types
         countries=None,     # WikiData countries
-        use_wikidata_labels_with_ror=False # Whether to add WikiData labels from previously downloaded file when generating the ROR indices
+        use_wikidata_labels_with_ror=False, # Whether to add WikiData labels from previously downloaded file when generating the ROR indices
+        device=None
     ):
         # Pass data_source to BaseLinker
         super().__init__(use_cache=use_cache, data_source=data_source,
@@ -58,6 +59,7 @@ class DenseLinker(BaseLinker):
         self.org_types = org_types
         self.countries = countries
         self.use_wikidata_labels_with_ror=use_wikidata_labels_with_ror
+        self.device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
         
         # These will be initialized later
         self.encoder = None
@@ -81,7 +83,7 @@ class DenseLinker(BaseLinker):
             # Initialize encoder
             if self.debug:
                 logger.info(f"Initializing encoder: {self.encoder_path}")
-            self.encoder = SentenceTransformer(self.encoder_path)
+            self.encoder = SentenceTransformer(self.encoder_path, device=self.device)
             
             # Add special tokens if needed
             if hasattr(self.encoder, 'tokenizer') and all(token not in self.encoder.tokenizer.vocab for token in SPECIAL_TOKENS):
@@ -101,19 +103,17 @@ class DenseLinker(BaseLinker):
     
     def _prepare_data(self):
         """Prepare data for the dense entity linker."""
-        # Implementation updated for source-agnostic approach
         if self.data_manager is None:
             raise RuntimeError("Cannot prepare data: data_manager is not set")
 
         # If using HNSW, ensure the index exists
         if self.use_hnsw:
             try:
-                # Check if hnswlib is installed
                 import hnswlib
                 
                 # Get or create the appropriate HNSW index for this data source
                 hnsw_index_dir = self.data_manager.get_or_create_index(
-                    source=self.data_source,  # Use the stored data_source
+                    source=self.data_source,
                     indices_type='hnsw',
                     encoder_path=self.encoder_path,
                     force_rebuild=self.rebuild_index,
@@ -134,9 +134,16 @@ class DenseLinker(BaseLinker):
                 )
                 
                 if self.hnsw_index and self.hnsw_metadata:
-                    # Load organization data from metadata
-                    self.org_data = self.hnsw_metadata.get("org_data", [])
-                    logger.info(f"Loaded {len(self.org_data)} organizations from HNSW metadata")
+                    # Check if this is an empty index
+                    if self.hnsw_metadata.get("empty_index", False):
+                        logger.info("Loaded empty HNSW index - no organizations available for specified filters")
+                        self.org_data = []
+                        self.use_hnsw = False  # Can't use HNSW with no data
+                        return  # Skip _load_organizations since we know there's no data
+                    else:
+                        # Load organization data from metadata
+                        self.org_data = self.hnsw_metadata.get("org_data", [])
+                        logger.info(f"Loaded {len(self.org_data)} organizations from HNSW metadata")
                 else:
                     self.use_hnsw = False
                     logger.info("Failed to load HNSW index. Falling back to PyTorch search.")
@@ -165,14 +172,31 @@ class DenseLinker(BaseLinker):
                 logger.info(f"Loading organizations from {ror_dump_path}")
             with open(ror_dump_path, 'r', encoding='utf-8') as f:
                 org_data = json.load(f)
+
         elif self.data_source == 'wikidata':
-            # Get WikiData organizations
-            wikidata_orgs = self.data_manager.get_wikidata_organizations()
+            # Get WikiData organizations with the specified filters
+            wikidata_orgs = self.data_manager.get_wikidata_organizations(
+                org_types=self.org_types, 
+                countries=self.countries
+            )
+            
+            # Handle empty results gracefully
             if wikidata_orgs is None or wikidata_orgs.empty:
-                raise ValueError("Failed to retrieve WikiData organizations")
-                
-            # Convert DataFrame to list of dicts
-            org_data = wikidata_orgs.to_dict('records')
+                logger.info("No WikiData organizations found with specified filters")
+                org_data = []  # Empty list is valid
+            else:
+                # Convert DataFrame to list of dicts
+                org_data = wikidata_orgs.to_dict('records')
+        else:
+            raise ValueError(f"Unsupported data source: {self.data_source}")
+        
+        # Handle empty dataset case
+        if not org_data:
+            logger.info(f"No organizations available for {self.data_source} with specified filters")
+            self.org_data = []
+            self.org_embeddings = torch.empty(0, 768)  # Empty tensor with correct dimensions
+            return
+            
         else:
             raise ValueError(f"Unsupported data source: {self.data_source}")
         
@@ -326,7 +350,21 @@ class DenseLinker(BaseLinker):
         # Ensure initialization
         if not self.is_initialized:
             self.initialize()
-        
+
+        # Handle empty dataset case
+        if not hasattr(self, 'org_data') or not self.org_data:
+            logger.info(f"No organizations available in {self.data_source} for matching")
+            return [{
+                "id": None, 
+                "name": None, 
+                "enc_score": 0.0, 
+                "orig_score": 0.0, 
+                "source": "dense", 
+                "data_source": self.data_source,
+                "explanation": f"No organizations available in {self.data_source} with specified filters",
+                "query_org": organization
+            }]
+
         # Format the query
         affiliation = []
         org = organization.get('main', organization['span_text'])
