@@ -84,7 +84,7 @@ hnsw_indices
 affenv/
 wikidata_cache/
 build/
-output/
+*output*
 
 *.sqlite
 
