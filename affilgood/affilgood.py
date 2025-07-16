@@ -153,6 +153,7 @@ class AffilGood:
                                 return_scores=return_scores,
                                 batch_size=batch_size,
                                 data_sources=self.data_sources,
+                                device=device,
                                 use_wikidata_labels_with_ror=self.use_wikidata_labels_with_ror,
                                 wikidata_org_types=self.wikidata_org_types,
                                 wikidata_countries=self.wikidata_countries,
