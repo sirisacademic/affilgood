@@ -83,7 +83,9 @@ hnsw_indices
 
 affenv/
 wikidata_cache/
-sparql_cache.sqlite
 build/
+output/
+
+*.sqlite
 
 generate_wikidata_index.py
