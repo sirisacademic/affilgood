@@ -1,5 +1,5 @@
 import logging
-from s2aff.model import parse_ner_prediction
+#from s2aff.model import parse_ner_prediction
 
 logger = logging.getLogger("s2aff")
 logger.setLevel(logging.INFO)
@@ -81,6 +81,8 @@ class S2AFF:
             "stage2_candidates": top candidates from the pairwise model
             "stage2_scores": scores of the above candidates
         """
+        from .model import parse_ner_prediction
+        
         # if we get a single string, we should make a list of out of it
         if isinstance(raw_affiliations, str):
             raw_affiliations = [raw_affiliations]
