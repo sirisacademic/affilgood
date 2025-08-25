@@ -41,7 +41,9 @@ simpletransformers
 awscli
 boto3
 nltk
-pypi-kenlm
 hyperopt
 lightgbm
 pytest
+
+# This is only used with S2AFF. Commented now to test it on Windows which does not have good support for kenlm.
+#pypi-kenlm
