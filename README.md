@@ -1,13 +1,187 @@
-# AffilGood Library 🔍
+# `AffilGood` 🕺🏾 
 
-AffilGood provides tools and annotated datasets to improve the accuracy of attributing scientific works to research organizations, especially in multilingual and complex contexts. The framework addresses key challenges in institution name disambiguation through a modular pipeline approach.
+AffilGood is a Python library for **extracting, normalizing, and linking research institutions** from raw affiliation strings (e.g. those found in scientific publications or project beneficiaries). 
 
-![AffilGood Pipeline](figure1.png)
+It is designed to work in **real-world, multilingual, noisy settings**, while remaining **modular, testable, and extensible**. We provides tools and annotated datasets to improve the accuracy of attributing scientific works to research organizations, especially in multilingual and complex contexts. The framework addresses key challenges in institution name disambiguation through a modular pipeline approach.
 
-## Publication
+![AffilGood Pipeline](docs/img/pipeline.png)
 
-This is the official repository for the paper ["AffilGood: Building reliable institution name disambiguation tools to improve scientific literature analysis"](https://aclanthology.org/2024.sdp-1.13/), published in the Scholarly Document Processing (SDP) 2024 Workshop at ACL 2024 Conference. Slides used in the presentation are available [here](https://docs.google.com/presentation/d/1wX7zInjoUrjO1hRL3U8tpSzxU6KOX0FknTaEqSf6ML0/edit#slide=id.g2effd47279e_0_22).
+>  Publication
+> This is the official repository for the paper ["AffilGood: Building reliable institution name disambiguation tools to improve scientific literature analysis"](https://aclanthology.org/2024.sdp-1.13/), published in the Scholarly Document Processing (SDP) 2024 Workshop at ACL 2024 Conference. Slides used in the presentation are available [here](https://docs.google.com/presentation/d/1wX7zInjoUrjO1hRL3U8tpSzxU6KOX0FknTaEqSf6ML0/edit#slide=id.g2effd47279e_0_22).
 
+## ✨ What `AffilGood` does
+
+Given an affiliation string like:
+```arduino
+"Department of Psychiatry, Universitat Autònoma de Barcelona, Spain"
+```
+
+AffilGood can:
+* detect institutions and subunits
+* normalize locations (optional)
+* link institutions to external identifiers (e.g. ROR)
+* return a stable, user-friendly output schema
+
+---
+## 🚀 Quick start
+
+### Installation (development)
+
+```bash
+git clone https://github.com/sirisacademic/affilgood.git
+cd affilgood
+pip install -e .
+```
+> Python ≥ 3.10 recommended
+
+### Basic usage
+```python
+from affilgood import AffilGood
+affilgood = AffilGood()
+result = affilgood.process("Universitat Autònoma de Barcelona, Spain")
+print(result)
+```
+
+Example output:
+```json
+{
+  "input": "Universitat Autònoma de Barcelona, Spain",
+  "institutions": [
+    {
+      "name": "Universitat Autònoma de Barcelona",
+      "id": null,
+      "confidence": null,
+      "source": "ner"
+    }
+  ],
+  "subunits": [],
+  "location": null,
+  "language": null,
+  "confidence": null
+}
+```
+
+---
+## 🧩 Pipeline overview
+
+AffilGood runs a defensive, modular pipeline:
+
+1. (optional) Language preprocessing
+2. Span identification
+3. Named Entity Recognition (NER)
+4. (optional) Metadata normalization
+5. (optional) Entity linking (e.g. ROR)
+6. Output normalization
+
+Each stage:
+* is optional
+* never crashes the pipeline
+* never overwrites previous results
+
+---
+## ⚙️ Configuration example
+
+```python
+ag = AffilGood(
+    device="cpu",                 # or "cuda"
+    batch_size=32,
+    enable_language_preprocessing=False,
+    enable_normalization=False,
+    entity_linking_sources="ror",
+    verbose=True
+)
+```
+## 📤 Output formats
+By default, AffilGood returns a **normalized output**.
+
+You can also access the full internal pipeline result:
+
+```python
+ag = AffilGood(output_format="full")
+raw = ag.process("Universitat Autònoma de Barcelona, Spain")
+```
+This is useful for debugging, research, and development.
+
+---
+## 🏗️ Project structure (simplified)
+```bash
+affilgood/
+├── api.py            # Public API (AffilGood)
+├── pipeline.py       # Internal pipeline orchestration
+├── output.py         # Output normalization
+├── components/
+│   ├── ner.py        # Lightweight NER
+│   └── ...
+```
+> Users should only import AffilGood from the top-level package.
+
+---
+## 🧪 Development status
+
+AffilGood is actively under development.
+
+Current focus:
+* API stability
+* pipeline correctness
+* clear output semantics
+* incremental testing
+* entity linkers
+
+Performance benchmarks and advanced configurations will be documented separately.
+
+---
+
+## 📝 Citation
+
+If you use AffilGood in your research, please cite our paper:
+
+```bibtex
+@inproceedings{duran-silva-etal-2024-affilgood,
+    title = "{A}ffil{G}ood: Building reliable institution name disambiguation tools to improve scientific literature analysis",
+    author = "Duran-Silva, Nicolau  and
+      Accuosto, Pablo  and
+      Przyby{\l}a, Piotr  and
+      Saggion, Horacio",
+    editor = "Ghosal, Tirthankar  and
+      Singh, Amanpreet  and
+      Waard, Anita  and
+      Mayr, Philipp  and
+      Naik, Aakanksha  and
+      Weller, Orion  and
+      Lee, Yoonjoo  and
+      Shen, Shannon  and
+      Qin, Yanxia",
+    booktitle = "Proceedings of the Fourth Workshop on Scholarly Document Processing (SDP 2024)",
+    month = aug,
+    year = "2024",
+    address = "Bangkok, Thailand",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.sdp-1.13",
+    pages = "135--144",
+}
+```
+
+## 🙋‍♀️ Contributing
+
+We welcome contributions to the AffilGood project! Instead of a single main branch, we use two branches:
+
+- `develop`: Development and default branch for new features and bug fixes.
+- `main`: Production branch used to deploy the server components to the production environment.
+
+Please follow our [Contribution Guidelines](docs/contribution-guide.md) to participate in this project.
+
+## 📫 Contact
+
+For further information, please contact <nicolau.duransilva@sirisacademic.com>.
+
+## ⚖️ License
+
+This work is distributed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+
+
+---
+# OLD
+----
 ## 🌟 Key Features
 
 - **Modular Pipeline Architecture**: Separate components for span identification, named entity recognition, entity linking, and metadata normalization
@@ -147,53 +321,6 @@ AffilGood achieves state-of-the-art performance on institution name disambiguati
 | AffilGoodNER + Elastic        | .649   | .610   | .755     | .648       | .855       | .893      | .881      |
 | AffilGoodNERm + Elastic+qLLM  | **.710**🔥 | .721 | **.774**🔥 | .790 | .881       | **.936**🔥 | **.916**🔥 |
 | AffilGoodNER + Elastic+qLLM   | .653   | **.747**🔥 | .767 | .799       | **.891**🔥 | **.936**🔥 | .909      |
-
-## 📝 Citation
-
-If you use AffilGood in your research, please cite our paper:
-
-```bibtex
-@inproceedings{duran-silva-etal-2024-affilgood,
-    title = "{A}ffil{G}ood: Building reliable institution name disambiguation tools to improve scientific literature analysis",
-    author = "Duran-Silva, Nicolau  and
-      Accuosto, Pablo  and
-      Przyby{\l}a, Piotr  and
-      Saggion, Horacio",
-    editor = "Ghosal, Tirthankar  and
-      Singh, Amanpreet  and
-      Waard, Anita  and
-      Mayr, Philipp  and
-      Naik, Aakanksha  and
-      Weller, Orion  and
-      Lee, Yoonjoo  and
-      Shen, Shannon  and
-      Qin, Yanxia",
-    booktitle = "Proceedings of the Fourth Workshop on Scholarly Document Processing (SDP 2024)",
-    month = aug,
-    year = "2024",
-    address = "Bangkok, Thailand",
-    publisher = "Association for Computational Linguistics",
-    url = "https://aclanthology.org/2024.sdp-1.13",
-    pages = "135--144",
-}
-```
-
-## 🙋‍♀️ Contributing
-
-We welcome contributions to the AffilGood project! Instead of a single main branch, we use two branches:
-
-- `develop`: Development and default branch for new features and bug fixes.
-- `main`: Production branch used to deploy the server components to the production environment.
-
-Please follow our [Contribution Guidelines](docs/contribution-guide.md) to participate in this project.
-
-## 📫 Contact
-
-For further information, please contact <nicolau.duransilva@sirisacademic.com>.
-
-## ⚖️ License
-
-This work is distributed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
 
 ## 🧪 Troubleshooting
