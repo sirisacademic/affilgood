@@ -16,6 +16,6 @@ setup(
     url="https://github.com/sirisacademic/affilgood",
     packages=find_packages(),  # Automatically find packages within affilgood/
     install_requires=requirements,  # Load dependencies from requirements.txt
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     include_package_data=True,  # Include additional files specified in MANIFEST.in
 )
