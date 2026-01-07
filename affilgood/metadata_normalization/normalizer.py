@@ -31,9 +31,8 @@ SUPPORTED_LANGUAGES = [
     'to', 'tt', 'ty', 'ug', 'uk', 'ur', 'uz', 'vi', 'xh', 'yo', 'yua', 'yue', 'zh-Hans', 'zh-Hant', 'zu'
 ]
 
-# Configure logging
-coco_logger = coco.logging.getLogger()
-coco_logger.setLevel(logging.CRITICAL)
+# Configure logging - suppress country_converter warnings
+logging.getLogger('country_converter').setLevel(logging.CRITICAL)
 
 class GeoNormalizer:
     def __init__(self, use_country_cache=True, use_osm_cache=True, country_cache_fname=None, osm_cache_path=None, osm_cache_expiration=None):
@@ -91,9 +90,6 @@ class GeoNormalizer:
             self.app.session = None
             if logging.getLogger().level <= logging.INFO:
                 print(f"OSM HTTP cache is disabled")
-       
-        coco_logger = coco.logging.getLogger()
-        coco_logger.setLevel(logging.CRITICAL)
    
     def load_country_mappings(self):
         """

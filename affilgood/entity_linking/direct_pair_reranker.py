@@ -305,7 +305,7 @@ class DirectPairReranker:
             
         # Replace special tokens with natural language
         text = text.replace("[MENTION]", "").strip()
-        text = re.sub('\[ACRONYM\] ([^\s]+)', '(\\1)', text).strip()
+        text = re.sub(r'\[ACRONYM\] ([^\s]+)', r'(\1)', text).strip()
         text = text.replace("[PARENT]", "part of").strip()
         text = text.replace("[CITY]", ",").strip()
         text = text.replace("[COUNTRY]", ",").strip()
@@ -400,7 +400,7 @@ class DirectPairReranker:
             variant = candidate['text']
             variants.append(variant)
             # Add without city
-            variants.append(re.sub('\[CITY\] ([^\s]+)', '\\1', variant))
+            variants.append(re.sub(r'\[CITY\] ([^\s]+)', r'\1', variant))
         
         # Get additional variants from the organization information
         # Use source-specific methods if needed
@@ -415,7 +415,7 @@ class DirectPairReranker:
         for variant in additional_variants:
             if variant not in variants:
                 variants.append(variant)
-                variants.append(re.sub('\[CITY\] ([^\s]+)', '\\1', variant))
+                variants.append(re.sub(r'\[CITY\] ([^\s]+)', r'\1', variant))
         
         # If still no variants but have a name, create a simple representation
         if not variants and 'name' in candidate:
