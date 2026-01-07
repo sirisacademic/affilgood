@@ -35,12 +35,25 @@ For more detailed information about using and extending AffilGood, check out our
 
 ## 🛠️ Installation
 
-We recommend installing AffilGood in **editable mode** to allow development and live code changes:
-
+We recommend installing AffilGood in editable mode to allow development and live code changes:
 ```bash
 git clone https://github.com/sirisacademic/affilgood.git
 cd affilgood
+git lfs pull
 pip install -e .
+```
+
+**Note:** This repository uses Git LFS for large data files. If you don't have Git LFS installed:
+```bash
+# Ubuntu/Debian
+apt install git-lfs
+
+# macOS
+brew install git-lfs
+
+# Then initialize and pull
+git lfs install
+git lfs pull
 ```
 
 > ⚠️ Note: Installing without `-e` (editable mode) may result in import errors due to how nested modules are organized.
