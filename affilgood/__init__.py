@@ -1,6 +1,12 @@
-# __init__.py
+"""
+AffilGood – Affiliation parsing and entity linking.
 
-from .affilgood import AffilGood  # Import the main AffilGood class
+Public API:
+    - AffilGood
+"""
 
-# Optionally, define what’s accessible when importing * from this package
+from affilgood.api import AffilGood
+
 __all__ = ["AffilGood"]
+
+__version__ = "0.1.0"
