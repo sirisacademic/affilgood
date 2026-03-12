@@ -99,3 +99,8 @@ scripts/
 eval/
 
 tests/affilgood-data-*.zip
+
+# Data files (downloaded via setup_data.py)
+affilgood/components/entity_linking/data/ror/
+affilgood/components/data/nuts/
+affilgood/components/data/*.sqlite
