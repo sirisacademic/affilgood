@@ -84,8 +84,18 @@ hnsw_indices
 affenv/
 wikidata_cache/
 build/
-*output*
 
 *.sqlite
 
 generate_wikidata_index.py
+
+
+old_codes/
+
+notebooks/
+
+scripts/
+
+eval/
+
+tests/

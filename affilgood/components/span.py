@@ -1,37 +1,38 @@
 """
-Lightweight Named Entity Recognition (NER) component.
+Lightweight span identification component.
 
 Responsibilities:
-- Run a NER model (if available)
-- Apply optional post-processing
-- Return a stable structure
+- Identify meaningful spans in affiliation strings
+- Optionally use a ML model
+- Always return a stable structure
 
 This component is defensive and batch-oriented.
 """
 
 from typing import List, Dict, Any, Optional
 
-DEFAULT_NER_MODEL = "nicolauduran45/affilgood-ner-multilingual-v2"
+DEFAULT_SPAN_MODEL = "nicolauduran45/affilgood-span-multilingual-v2"
 
-class NER:
+
+class SpanIdentifier:
     def __init__(
         self,
         model_path: Optional[str] = None,
         device: str = "cpu",
         batch_size: int = 32,
         verbose: bool = False,
-        fix_words: bool = True,
-        merge_entities: bool = True,
         min_score: float = 0.0,
+        fix_words: bool = True,
+        merge_spans: bool = True,
     ):
-        self.model_path = model_path or DEFAULT_NER_MODEL
+        self.model_path = model_path or DEFAULT_SPAN_MODEL
         self.device = device
         self.batch_size = batch_size
         self.verbose = verbose
 
-        self.fix_words_enabled = fix_words
-        self.merge_entities_enabled = merge_entities
         self.min_score = min_score
+        self.fix_words_enabled = fix_words
+        self.merge_spans_enabled = merge_spans
 
         self._pipeline = None
         self._available = False
@@ -47,7 +48,7 @@ class NER:
             from transformers import pipeline
 
             if self.verbose:
-                print(f"[NER] Loading model: {self.model_path}")
+                print(f"[Span] Loading model: {self.model_path}")
 
             self._pipeline = pipeline(
                 "token-classification",
@@ -59,7 +60,7 @@ class NER:
 
         except Exception as e:
             if self.verbose:
-                print(f"[NER] Model unavailable, using noop NER: {e}")
+                print(f"[Span] Model unavailable, using noop span identifier: {e}")
             self._pipeline = None
             self._available = False
 
@@ -67,50 +68,43 @@ class NER:
     # Public API
     # -------------------------------------------------
 
-    def recognize_entities(
+    def identify_spans(
         self,
         items: List[Dict[str, Any]],
         batch_size: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Run NER on span_entities.
+        Identify spans for each input item.
 
         Always returns:
-        - ner: list[dict] (per span)
-        - ner_raw: list[list] (per span)
+        - span_entities: list[str]
         """
         batch_size = batch_size or self.batch_size
 
-        # Flatten spans
-        flat_spans = []
-        span_map = []  # (item_idx, span_idx)
-
-        for item_idx, item in enumerate(items):
-            spans = item.get("span_entities", [])
-            for span_idx, span in enumerate(spans):
-                flat_spans.append(span)
-                span_map.append((item_idx, span_idx))
-
-        # Prepare empty outputs
         results = []
+        texts = []
+
         for item in items:
             out = dict(item)
-            out["ner"] = [{} for _ in item.get("span_entities", [])]
-            out["ner_raw"] = [[] for _ in item.get("span_entities", [])]
+            out["span_entities"] = []
             results.append(out)
+            texts.append(item.get("raw_text", ""))
 
-        # No spans or no model → noop
-        if not flat_spans or not self._available:
+        # No model → fallback to full text
+        if not self._available:
+            for out in results:
+                text = out.get("raw_text", "")
+                out["span_entities"] = [text] if text else []
             return results
 
         # -------------------------------------------------
-        # Batched inference (KeyDataset)
+        # Batched inference
         # -------------------------------------------------
         try:
             from datasets import Dataset
             from transformers.pipelines.pt_utils import KeyDataset
 
-            dataset = Dataset.from_dict({"text": flat_spans})
+            dataset = Dataset.from_dict({"text": texts})
 
             outputs = list(
                 self._pipeline(
@@ -121,29 +115,38 @@ class NER:
 
         except Exception as e:
             if self.verbose:
-                print(f"[NER] Inference failed: {e}")
+                print(f"[Span] Inference failed, using fallback: {e}")
+            for out in results:
+                text = out.get("raw_text", "")
+                out["span_entities"] = [text] if text else []
             return results
 
         # -------------------------------------------------
-        # Post-process and map back
+        # Post-process
         # -------------------------------------------------
-        for output, (item_idx, span_idx), span_text in zip(
-            outputs, span_map, flat_spans
-        ):
-            raw = output
+        for out, raw_text, entities in zip(results, texts, outputs):
+            spans = entities
 
             if self.fix_words_enabled:
-                raw = self._fix_words(span_text, raw)
+                spans = self._fix_words(raw_text, spans)
 
-            if self.merge_entities_enabled:
-                raw = self._clean_and_merge_entities(
-                    raw, min_score=self.min_score
+            if self.merge_spans_enabled:
+                spans = self._clean_and_merge_spans(
+                    spans,
+                    min_score=self.min_score,
                 )
 
-            structured = self._group_entities(raw)
+            span_entities = [
+                ent.get("word", "")
+                for ent in spans
+                if ent.get("word")
+            ]
 
-            results[item_idx]["ner"][span_idx] = structured
-            results[item_idx]["ner_raw"][span_idx] = raw
+            # Defensive fallback
+            if not span_entities and raw_text:
+                span_entities = [raw_text]
+
+            out["span_entities"] = span_entities
 
         return results
 
@@ -151,47 +154,18 @@ class NER:
     # Helpers
     # -------------------------------------------------
 
-    def _group_entities(self, raw_entities: List[Dict[str, Any]]) -> Dict[str, List[str]]:
-        grouped: Dict[str, List[str]] = {}
-
-        for ent in raw_entities:
-            label = ent.get("entity_group")
-            text = ent.get("word")
-
-            if not label or not text:
-                continue
-
-            grouped.setdefault(label, []).append(text)
-
-        return grouped
-
     def _fix_words(self, raw_text: str, entities: List[Dict[str, Any]]):
         for entity in entities:
             try:
                 start, end = entity.get("start"), entity.get("end")
                 if start is None or end is None:
                     continue
-
-                entity_text = raw_text[start:end]
-
-                last_open = entity_text.rfind("(")
-                last_close = entity_text.rfind(")")
-
-                if last_open > -1 and (last_close == -1 or last_open > last_close):
-                    next_close = raw_text.find(")", end)
-                    if next_close > -1:
-                        between = raw_text[end:next_close]
-                        if not any(d in between for d in [" ", ",", ";", ":", ".", "\n", "\t"]):
-                            entity["end"] = next_close + 1
-                            entity_text = raw_text[start : next_close + 1]
-
-                entity["word"] = entity_text
+                entity["word"] = raw_text[start:end]
             except Exception:
                 continue
-
         return entities
 
-    def _clean_and_merge_entities(self, entities, min_score=0.0):
+    def _clean_and_merge_spans(self, entities, min_score=0.0):
         entities = [e for e in entities if e.get("score", 0) >= min_score]
 
         merged = []
@@ -206,7 +180,7 @@ class NER:
                     if (
                         current.get("end") == nxt.get("start")
                         and nxt.get("word")
-                        and (nxt["word"][0].islower() or nxt["word"][0].isdigit())
+                        and nxt["word"][0].islower()
                     ):
                         merged.append({
                             "entity_group": current.get("entity_group"),
