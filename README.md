@@ -1,41 +1,51 @@
-# AffilGood Library 🔍
+# `AffilGood` 🕺🏾
 
-AffilGood provides tools and annotated datasets to improve the accuracy of attributing scientific works to research organizations, especially in multilingual and complex contexts. The framework addresses key challenges in institution name disambiguation through a modular pipeline approach.
+AffilGood is a Python library for **extracting and structuring research institution information** from raw affiliation strings (e.g. those found in scientific publications, project beneficiaries, or metadata dumps).
 
-![AffilGood Pipeline](figure1.png)
+It is designed to work in **real-world, multilingual, noisy settings**, while remaining:
 
-## Publication
+* 🧩 **modular**
+* 🛡️ **defensive**
+* 🧪 **fully testable**
+* 🔌 **easy to extend**
 
-This is the official repository for the paper ["AffilGood: Building reliable institution name disambiguation tools to improve scientific literature analysis"](https://aclanthology.org/2024.sdp-1.13/), published in the Scholarly Document Processing (SDP) 2024 Workshop at ACL 2024 Conference. Slides used in the presentation are available [here](https://docs.google.com/presentation/d/1wX7zInjoUrjO1hRL3U8tpSzxU6KOX0FknTaEqSf6ML0/edit#slide=id.g2effd47279e_0_22).
+AffilGood focuses on **stable output semantics**: regardless of which internal components are enabled, the public output schema remains consistent.
 
-## 🌟 Key Features
+![AffilGood Pipeline](docs/img/pipeline.png)
 
-- **Modular Pipeline Architecture**: Separate components for span identification, named entity recognition, entity linking, and metadata normalization
-- **Multilingual Support**: Models trained on data in multiple languages
-- **Advanced Entity Linking**: Multiple linking strategies with combination of retrievers and reranking mechanisms
-- **Multiple Data Sources**: Support for ROR, WikiData, and custom data sources
-- **Location Normalization**: Integration with OpenStreetMap for standardizing geographic data
-- **Language Processing**: Automatic language detection and translation capabilities
-- **Performance Optimization**: Caching mechanisms and batch processing for efficient handling of large datasets
+> 📄 **Publication**
+> This repository accompanies the paper
+> **"AffilGood: Building reliable institution name disambiguation tools to improve scientific literature analysis"**,
+> published at the *Scholarly Document Processing (SDP) Workshop @ ACL 2024*.
+>
+> • Paper: [https://aclanthology.org/2024.sdp-1.13/](https://aclanthology.org/2024.sdp-1.13/)
+> • Slides: [https://docs.google.com/presentation/d/1wX7zInjoUrjO1hRL3U8tpSzxU6KOX0FknTaEqSf6ML0](https://docs.google.com/presentation/d/1wX7zInjoUrjO1hRL3U8tpSzxU6KOX0FknTaEqSf6ML0)
 
-## 📚 Documentation
+---
 
-For more detailed information about using and extending AffilGood, check out our documentation:
+## ✨ What `AffilGood` does
 
-- [Getting Started](docs/getting-started.md) - Installation and first steps
-- [Modules Reference](docs/modules.md) - Detailed reference for classes and methods
-- [Entity Linking](docs/entity-linking.md) - Guide to entity linking capabilities
-- [Data Sources](docs/data-sources.md) - Available data sources and customization
-- [Language Processing](docs/language-processing.md) - Multilingual support and translation
-- [Customization](docs/customization.md) - Extending the pipeline with custom components
-- [Performance](docs/performance.md) - Optimization and scaling strategies
-- [Usage Examples](docs/usage-examples.md) - Code examples for different scenarios
-- [Technical Overview](docs/technical-overview.md) - In-depth explanation of architecture
-- [Contribution Guide](docs/contribution-guide.md) - Guidelines for contributing
+Given an affiliation string like:
 
-## 🛠️ Installation
+```text
+SELMET, Univ Montpellier, CIRAD, INRA, Montpellier SupAgro, Montpellier, France
+```
 
-We recommend installing AffilGood in **editable mode** to allow development and live code changes:
+AffilGood can:
+
+* detect **institutions** (ORG), **sub-organizations** (SUBORG), and **subunits** (SUB) via NER
+* **link institutions to registries** (ROR) using a three-stage cascade pipeline
+* **translate non-Latin scripts** (Chinese, Japanese, Arabic, Russian, etc.) before processing
+* enrich results with **geolocation** (city, country, NUTS regions, coordinates)
+* **fill missing locations from ROR data** when NER misses geographic entities
+* detect **language** of affiliation strings
+* structure everything into a **stable, user-friendly schema**
+
+---
+
+## 🚀 Quick start
+
+### Installation
 
 ```bash
 git clone https://github.com/sirisacademic/affilgood.git
@@ -43,114 +53,426 @@ cd affilgood
 pip install -e .
 ```
 
-> ⚠️ Note: Installing without `-e` (editable mode) may result in import errors due to how nested modules are organized.
+> 🐍 Python ≥ 3.10 recommended
 
-## 🚀 Quick Start
+---
+
+### Basic usage
 
 ```python
 from affilgood import AffilGood
 
-# Initialize with default settings
-affil_good = AffilGood()
+ag = AffilGood()
+result = ag.process("Universitat Autònoma de Barcelona, Spain")
+print(result)
+```
 
-# Or customize components
-affil_good = AffilGood(
-    span_separator='',  # Use model-based span identification
-    span_model_path='SIRIS-Lab/affilgood-span-multilingual',  # Custom span model
-    ner_model_path='SIRIS-Lab/affilgood-NER-multilingual',  # Custom NER model
-    entity_linkers=['Whoosh', 'DenseLinker'],  # Use multiple linkers
-    return_scores=True,  # Return confidence scores with predictions
-    metadata_normalization=True,  # Enable location normalization
-    verbose=False,  # Detailed logging
-    device=None  # Auto-detect device (CPU or CUDA)
+### Recommended configuration (best accuracy)
+
+```python
+from affilgood import AffilGood
+
+ag = AffilGood(
+    enable_entity_linking=True,
+    linking_config={
+        "reranker": None,         # retrieval-only (Acc@1=0.905)
+        "threshold": 0.5,
+    },
+    enable_language_detect=True,
+    language_config={"method": "combined_langdetect"},
+    enable_normalization=True,
+    add_nuts=True,
+    verbose=True,
 )
 
-# Process affiliation strings
-affiliations = [
-    "Granges Terragrisa SL, Paratge de La Gleva, Camí de Burrissola s/n, E-08508 Les Masies de Voltregà (Barcelona), Catalonia, Spain",
-    "Treuman Katz Center for Pediatric Bioethics, Seattle Children's Research Institute, Seattle, WA, USA"
-]
-
-# Full pipeline processing (span identification, NER, normalization, entity linking)
-results = affil_good.process(affiliations)
-
-# Or use individual components
-spans = affil_good.get_span(affiliations)
-entities = affil_good.get_ner(spans)
-normalized = affil_good.get_normalization(entities)
-linked = affil_good.get_entity_linking(normalized)
-
-print(linked)
+result = ag.process("SELMET, Univ Montpellier, CIRAD, INRA, Montpellier SupAgro, Montpellier, France")
 ```
 
-## 📦 Project Structure
+---
 
-The repository is structured as follows:
+## 🧩 Pipeline overview
+
+AffilGood runs a **defensive, modular pipeline** with seven stages:
 
 ```
+Input → Span → Language → Translation → NER → Entity Linking → Geocoding → Output
+```
+
+| Stage | Description | Default |
+|---|---|---|
+| **1. Span identification** | Splits multi-affiliation strings | Always on |
+| **2. Language detection** | Detects language of each span | Off (`enable_language_detect=True`) |
+| **3. Translation** | Translates non-Latin scripts to English | Off (`translate_config={...}`) |
+| **4. NER** | Extracts ORG, SUBORG, SUB, CITY, COUNTRY | Always on |
+| **5. Entity linking** | Links ORG/SUBORG to ROR registry | On (`enable_entity_linking=True`) |
+| **6. Geocoding** | Resolves locations via OSM Nominatim | Off (`enable_normalization=True`) |
+| **6b. ROR→Geocode feedback** | Fills missing locations from ROR data | Automatic when both EL and geocoding are enabled |
+
+### Design guarantees
+
+Each stage is optional, never crashes the pipeline, never deletes previous results, and operates on a shared, well-defined internal schema.
+
+---
+
+## 🔗 Entity linking
+
+Entity linking matches NER-extracted organizations against the ROR (Research Organization Registry) using a **three-stage cascade**:
+
+### Stage 1 — Direct match
+
+Exact name + country lookup against all ROR names, aliases, acronyms, and labels. Handles ~35% of entities at ~98% precision with zero latency.
+
+Features:
+* **Unicode-safe normalization** — "Selçuk Üniversitesi" + "TÜRKİYE" matches correctly (Turkish İ, accents)
+* **Inactive record resolution** — INRA (withdrawn) automatically resolves to its successor INRAE (active)
+* **Acronym support** — "CNRS" + "France" resolves directly when unambiguous
+
+### Stage 2 — Dense retrieval
+
+FAISS HNSW index with the `SIRIS-Lab/affilgood-dense-retriever` encoder (1024-dim XLM-RoBERTa). Queries use structured tokens matching the encoder's training format:
+
+```
+[MENTION] Univ Montpellier [CITY] Montpellier [COUNTRY] France
+```
+
+Key feature: **multi-variant queries** — each entity generates 2–4 geographic variants (ORG+CITY+COUNTRY, ORG+COUNTRY, ORG only) and results are merged by max score. This is critical for R@1=0.905.
+
+### Stage 3 — LLM judge (optional)
+
+For low-confidence results, a small instruction-following LLM sees all candidates simultaneously and picks the best match. Uses first-token logit scoring (one forward pass, no generation). Handles acronym confusion, same-name disambiguation, and complex affiliation chains.
+
+### Optional: Cross-encoder reranking with score fusion
+
+A cross-encoder reranker can be added between retrieval and final selection. Retrieval and reranker scores are fused (`alpha * retrieval + (1-alpha) * reranker`) to prevent the reranker from overriding correct retriever results.
+
+---
+
+## ⚙️ Configuration guide
+
+### Minimal (NER only, no linking)
+
+```python
+ag = AffilGood()
+```
+
+### With entity linking (recommended)
+
+```python
+ag = AffilGood(
+    enable_entity_linking=True,
+    linking_config={
+        "reranker": None,       # retrieval-only mode
+        "threshold": 0.5,       # cosine similarity threshold
+    },
+)
+```
+
+### With geocoding and NUTS regions
+
+```python
+ag = AffilGood(
+    enable_entity_linking=True,
+    linking_config={
+        "reranker": None,
+        "threshold": 0.5,
+    },
+    enable_normalization=True,
+    add_nuts=True,
+)
+```
+
+### With language detection
+
+```python
+ag = AffilGood(
+    enable_language_detect=True,
+    language_config={"method": "combined_langdetect"},
+    enable_entity_linking=True,
+    linking_config={"reranker": None, "threshold": 0.5},
+    enable_normalization=True,
+    add_nuts=True,
+    verbose=True,
+)
+```
+
+### With non-Latin script translation
+
+```python
+ag = AffilGood(
+    enable_language_detect=True,
+    language_config={"method": "combined_langdetect"},
+    translate_config={
+        "model_name": "Qwen/Qwen2.5-0.5B-Instruct",   # ~1GB
+        "device": "cpu",
+    },
+    enable_entity_linking=True,
+    linking_config={"reranker": None, "threshold": 0.5},
+    enable_normalization=True,
+    verbose=True,
+)
+
+# Chinese affiliation → translated → NER → linked → geocoded
+result = ag.process("清华大学计算机科学与技术系, 北京, 中国")
+```
+
+Translation auto-detects and only activates for non-Latin scripts: Chinese, Japanese, Korean, Arabic, Russian, Persian, Greek, Thai, Hindi, Ukrainian, and more.
+
+### With cross-encoder reranking + score fusion
+
+```python
+ag = AffilGood(
+    enable_entity_linking=True,
+    linking_config={
+        "reranker": "cross_encoder",
+        "reranker_model": "cometadata/jina-reranker-v2-multilingual-affiliations-v5",
+        "score_fusion_alpha": 0.5,   # 0=reranker only, 1=retriever only
+        "threshold": 0.5,
+    },
+)
+```
+
+### With LLM judge for hard cases
+
+```python
+ag = AffilGood(
+    enable_entity_linking=True,
+    linking_config={
+        "reranker": None,
+        "threshold": 0.5,
+        "llm_judge": "Qwen/Qwen2.5-0.5B-Instruct",   # ~1GB, or 3B for better accuracy
+        "llm_threshold": 0.7,   # invoke LLM when retrieval score < 0.7
+    },
+)
+```
+
+### Full configuration (all features)
+
+```python
+ag = AffilGood(
+    device="cpu",
+    enable_language_detect=True,
+    language_config={"method": "combined_langdetect"},
+    translate_config={
+        "model_name": "Qwen/Qwen2.5-0.5B-Instruct",
+        "device": "cpu",
+    },
+    enable_entity_linking=True,
+    linking_config={
+        "encoder_model": "SIRIS-Lab/affilgood-dense-retriever",
+        "reranker": None,
+        "threshold": 0.5,
+        "llm_judge": "Qwen/Qwen2.5-3B-Instruct",
+        "llm_threshold": 0.7,
+    },
+    enable_normalization=True,
+    add_nuts=True,
+    verbose=True,
+)
+```
+
+### Custom data directory (pre-built index)
+
+```python
+linking_config={
+    "data_dir": "/path/to/entity_linking/data",
+    ...
+}
+```
+
+---
+
+## 📤 Output schema
+
+### Normalized output (default)
+
+```python
+result = ag.process("SELMET, Univ Montpellier, CIRAD, INRA, Montpellier SupAgro, Montpellier, France")
+```
+
+```json
+{
+  "raw_text": "SELMET, Univ Montpellier, CIRAD, INRA, Montpellier SupAgro, Montpellier, France",
+  "outputs": [
+    {
+      "input": "SELMET, Univ Montpellier, CIRAD, INRA, Montpellier SupAgro, Montpellier, France",
+      "institutions": [
+        {
+          "name": "Université de Montpellier",
+          "query": "Univ Montpellier",
+          "id": {
+            "ror_id": "https://ror.org/051escj72",
+            "ror_name": "Université de Montpellier",
+            "ror_country": "France",
+            "ror_country_code": "FR",
+            "ror_city": "Montpellier",
+            "ror_types": ["education"]
+          },
+          "confidence": 0.97,
+          "source": "ror"
+        },
+        {
+          "name": "Centre de Coopération Internationale en Recherche Agronomique pour le Développement",
+          "query": "CIRAD",
+          "id": {"ror_id": "https://ror.org/05kpkpg04", "...": "..."},
+          "confidence": 1.0,
+          "source": "ror"
+        }
+      ],
+      "subunits": [
+        {
+          "name": "Systèmes d'élevage méditerranéens et tropicaux",
+          "id": {"ror_id": "https://ror.org/05merjr74", "...": "..."},
+          "confidence": 1.0,
+          "source": "ror"
+        }
+      ],
+      "location": {
+        "city": "Montpellier",
+        "county": "Hérault",
+        "region": "Occitania",
+        "country": "France",
+        "country_code": "FRA",
+        "continent": "Europe",
+        "un_region": "Western Europe",
+        "lat": 43.611,
+        "lon": 3.877,
+        "nuts": {
+          "nuts0_id": "FR",
+          "nuts1_id": "FRJ",
+          "nuts2_id": "FRJ1",
+          "nuts3_id": "FRJ13",
+          "nuts3_name": "Hérault"
+        },
+        "source": {"city": "osm", "country": "osm"}
+      },
+      "language": "fr",
+      "confidence": 0.97
+    }
+  ]
+}
+```
+
+### Entity types
+
+| NER type | Output section | Linked to ROR? |
+|---|---|---|
+| **ORG** | `institutions` | Yes |
+| **SUBORG** | `subunits` | Yes (sub-organizations with own registry entry) |
+| **SUB** | `subunits` | No (departments, labs — pass-through) |
+
+### Location sources
+
+| Source tag | Meaning |
+|---|---|
+| `"osm"` | Geocoded from NER-extracted city/country via OSM Nominatim |
+| `"ror-osm"` | Geocoded from ROR city/country when NER missed location |
+| `"ner"` | Taken directly from NER (address, postal code) |
+
+### Debug output
+
+```python
+result = ag.process("...", return_debug=True)
+```
+
+Returns the full internal pipeline state including raw NER scores, all entity linking candidates, and intermediate results.
+
+---
+
+## 🏗️ Building the FAISS index
+
+The dense retriever requires a pre-built FAISS index. On first use it builds automatically (slow on CPU). For faster builds, use GPU:
+
+```python
+from affilgood.components.entity_linking.registry import RegistryManager
+from affilgood.components.entity_linking.index import IndexBuilder
+from pathlib import Path
+
+data_dir = Path("affilgood/components/entity_linking/data")
+
+registry = RegistryManager(data_dir=data_dir, verbose=True)
+records = registry.get_records("ror", active_only=False)
+
+builder = IndexBuilder(
+    data_dir=data_dir / "ror",
+    encoder_model="SIRIS-Lab/affilgood-dense-retriever",
+    device="cuda",       # GPU: ~2-3 min; CPU: ~30-45 min
+    batch_size=512,
+    verbose=True,
+)
+
+index = builder.build_dense_index(records, index_type="hnsw", rebuild=True)
+```
+
+The index is cached to `data/ror/dense/` and loaded automatically on subsequent runs. Rebuild when: ROR dump is updated, encoder model changes, or you pass `rebuild_index=True`.
+
+---
+
+## 🏗️ Project structure
+
+```text
 affilgood/
-├── __init__.py                   # Package initialization
-├── affilgood.py                  # Main AffilGood class implementation
-├── span_identification/          # Span identification module
-│   ├── span_identifier.py        # Model-based span identification
-│   ├── simple_span_identifier.py # Character-based span splitter
-│   └── noop_span_identifier.py   # Pass-through identifier for pre-segmented data
-├── ner/                          # Named Entity Recognition module
-│   └── ner.py                    # NER implementation
-├── entity_linking/               # Entity linking module
-│   ├── entity_linker.py          # Main entity linking orchestrator
-│   ├── base_linker.py            # Base class for entity linkers
-│   ├── whoosh_linker.py          # Whoosh-based entity linker
-│   ├── s2aff_linker.py           # S2AFF-based entity linker
-│   ├── dense_linker.py           # Dense retrieval-based entity linker
-│   ├── base_reranker.py          # Base class for rerankers
-│   ├── direct_pair_reranker.py   # Direct pair matching reranker
-│   ├── llm_reranker.py           # LLM-based reranker for candidate selection
-│   ├── constants.py              # Constants for entity linking
-│   ├── wikidata_dump_generator.py # WikiData integration
-│   ├── llm_translator.py         # Translation capabilities
-│   └── __init__.py               # Data source registry and handlers
-├── metadata_normalization/       # Metadata normalization module
-│   └── normalizer.py             # Location and country normalization
-└── utils/                        # Utility functions
-    ├── data_manager.py           # Data loading and caching
-    ├── text_utils.py             # Text processing utilities
-    └── translation_mappings.py   # Institution name translation mappings
+├── api.py                        # Public API (AffilGood)
+├── pipeline.py                   # Pipeline orchestration
+├── output.py                     # Output normalization
+├── components/
+│   ├── span.py                   # Span identification
+│   ├── ner.py                    # Named Entity Recognition
+│   ├── language.py               # Language detection
+│   ├── translate.py              # Non-Latin script translation
+│   ├── geocode.py                # OSM Nominatim geocoding
+│   └── entity_linking/
+│       ├── linker.py             # Cascade orchestrator
+│       ├── registry.py           # ROR data management
+│       ├── index.py              # FAISS index building
+│       ├── retrievers/
+│       │   ├── base.py           # BaseRetriever ABC
+│       │   └── dense.py          # FAISS dense retriever
+│       └── rerankers/
+│           ├── base.py           # BaseReranker ABC
+│           ├── cross_encoder.py  # Cross-encoder reranker
+│           └── llm.py            # LLM listwise reranker
 ```
 
-## 🤗 Pre-trained Models
+> 📌 Users should only import `AffilGood` from the top-level package.
+> Internal components are not part of the public API.
 
-AffilGood uses several pre-trained models available on Hugging Face:
-
-- 🤗 [SIRIS-Lab/affilgood-NER-multilingual](https://huggingface.co/SIRIS-Lab/affilgood-NER-multilingual) - Multilingual NER model
-- 🤗 [SIRIS-Lab/affilgood-span-multilingual](https://huggingface.co/SIRIS-Lab/affilgood-span-multilingual) - Multilingual span model
-- 🤗 [SIRIS-Lab/affilgood-NER](https://huggingface.co/SIRIS-Lab/affilgood-NER) - English NER model
-- 🤗 [SIRIS-Lab/affilgood-SPAN](https://huggingface.co/SIRIS-Lab/affilgood-span) - English span model
-- 🤗 [SIRIS-Lab/affilgood-affilRoBERTa](https://huggingface.co/SIRIS-Lab/affilgood-affilroberta) - RoBERTa adapted for affiliation data
-- 🤗 [SIRIS-Lab/affilgood-affilXLM](https://huggingface.co/SIRIS-Lab/affilgood-affilxlm) - XLM-RoBERTa adapted for affiliation data
+---
 
 ## 📊 Performance
 
-Note: These results can be outdated as the pipeline is in development and new features are being included.
+Benchmarked on 4,006 test affiliations across 12 datasets:
 
-AffilGood achieves state-of-the-art performance on institution name disambiguation tasks compared to existing systems:
+| Configuration | Acc@1 | Notes |
+|---|---|---|
+| Dense retrieval only | 0.905 | `reranker=None` |
+| + cross-encoder (jina_comet) | 0.911 | Best overall |
+| + score fusion (α=0.35) | ~0.93 | Prevents reranker degradation |
+| Direct match baseline | 0.981 precision | ~35% coverage |
+| Cascade (DM → retrieval) | Best of both | Default mode |
 
-| **Model**                     | **MA** | **FA** | **NRMO** | **S2AFF*** | **CORDIS** | **ETERe** | **ETERm** |
-|-------------------------------|--------|--------|----------|------------|------------|-----------|-----------|
-| ElasticSearch                 | .545   | .407   | .470     | .515       | .751       | .855      | .847      |
-| OpenAlex                      | .394   | .118   | .769     | **.871**🔥  | .648       | .859      | .852      |
-| S2AFF                         | .546   | .367   | .617     | .785       | .649       | .668      | .720      |
-| AffRo                         | .452   | .408   | .558     | .726       | .641       | .709      | .617      |
-| AffilGoodNERm + S2AFF<sub>Linker</sub> | .596 | .685 | .762 | .841       | .827       | .887      | .863      |
-| AffilGoodNER + S2AFF<sub>Linker</sub>  | .579 | .685 | .758 | .850       | .839       | .895      | .855      |
-| AffilGoodNERm + Elastic       | .690   | .587   | .747     | .640       | .849       | .887      | .894      |
-| AffilGoodNER + Elastic        | .649   | .610   | .755     | .648       | .855       | .893      | .881      |
-| AffilGoodNERm + Elastic+qLLM  | **.710**🔥 | .721 | **.774**🔥 | .790 | .881       | **.936**🔥 | **.916**🔥 |
-| AffilGoodNER + Elastic+qLLM   | .653   | **.747**🔥 | .767 | .799       | **.891**🔥 | **.936**🔥 | .909      |
+See `docs/error_analysis.md` for detailed analysis of error patterns and improvement strategies.
+
+---
+
+## 🧪 Running tests
+
+```bash
+pytest
+```
+
+```text
+tests/
+├── components/   # Unit tests for individual components
+├── pipeline/     # Pipeline wiring and invariants
+├── output/       # Public output schema contract tests
+├── test_smoke.py # End-to-end API sanity checks
+```
+
+---
 
 ## 📝 Citation
 
-If you use AffilGood in your research, please cite our paper:
+If you use AffilGood in your research, please cite:
 
 ```bibtex
 @inproceedings{duran-silva-etal-2024-affilgood,
@@ -159,89 +481,32 @@ If you use AffilGood in your research, please cite our paper:
       Accuosto, Pablo  and
       Przyby{\l}a, Piotr  and
       Saggion, Horacio",
-    editor = "Ghosal, Tirthankar  and
-      Singh, Amanpreet  and
-      Waard, Anita  and
-      Mayr, Philipp  and
-      Naik, Aakanksha  and
-      Weller, Orion  and
-      Lee, Yoonjoo  and
-      Shen, Shannon  and
-      Qin, Yanxia",
     booktitle = "Proceedings of the Fourth Workshop on Scholarly Document Processing (SDP 2024)",
-    month = aug,
     year = "2024",
-    address = "Bangkok, Thailand",
-    publisher = "Association for Computational Linguistics",
     url = "https://aclanthology.org/2024.sdp-1.13",
-    pages = "135--144",
 }
 ```
 
+---
+
 ## 🙋‍♀️ Contributing
 
-We welcome contributions to the AffilGood project! Instead of a single main branch, we use two branches:
+We welcome contributions! We use two branches:
 
-- `develop`: Development and default branch for new features and bug fixes.
-- `main`: Production branch used to deploy the server components to the production environment.
+* `develop` — default branch for development
+* `main` — production branch for deployed services
 
-Please follow our [Contribution Guidelines](docs/contribution-guide.md) to participate in this project.
+Please see [`docs/contribution-guide.md`](docs/contribution-guide.md).
+
+---
 
 ## 📫 Contact
 
-For further information, please contact <nicolau.duransilva@sirisacademic.com>.
+📧 [nicolau.duransilva@sirisacademic.com](mailto:nicolau.duransilva@sirisacademic.com)
+
+---
 
 ## ⚖️ License
 
-This work is distributed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-
-
-## 🧪 Troubleshooting
-
-### ❗ Issue: `ImportError` when using `hnswlib`
-
-If you see an error like:
-
-```
-ImportError: ...libstdc++.so.6: version `GLIBCXX_3.4.32' not found
-```
-
-This means your system is using an outdated version of the C++ standard library (`libstdc++.so.6`), or a conflicting version from Anaconda.
-
-#### ✅ Solution 1: Use the system version of `libstdc++`
-
-Ensure you're using the correct library version. You can override Anaconda's version by setting this before running Python:
-
-```bash
-export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
-```
-
-Or temporarily launch Python with a clean environment:
-
-```bash
-LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu python
-```
-
-#### ✅ Solution 2: Update `libstdc++`
-
-You can update the system library via:
-
-```bash
-sudo apt update
-sudo apt install libstdc++6
-```
-
-Check that the required version is available:
-
-```bash
-strings /usr/lib/x86_64-linux-gnu/libstdc++.so.6 | grep GLIBCXX_3.4.32
-```
-
-#### ✅ Solution 3: Rebuild `hnswlib` using your current compiler
-
-```bash
-pip uninstall hnswlib
-pip install --no-binary :all: hnswlib
-```
-
-This ensures the library is built using your system’s standard C++ runtime.
+Licensed under the **Apache License, Version 2.0**
+[https://www.apache.org/licenses/LICENSE-2.0](https://www.apache.org/licenses/LICENSE-2.0)

@@ -1,0 +1,67 @@
+[project]
+name = "affilgood"
+version = "2.0.0"
+description = "Extract and structure research institution information from raw affiliation strings"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+
+dependencies = [
+    "geopy>=2.3",
+    "country_converter>=1.0",
+    "geopandas>=1.1.2",
+    "shapely>=2.1.2",
+    "langdetect>=1.0.9",
+    "faiss-cpu>=1.13.2",
+    "sentence-transformers>=5.2.3",
+    "openpyxl>=3.1.5",
+    "rank-bm25>=0.2.2",
+    "whoosh>=2.7.4",
+    "datasets>=4.5.0",
+    "einops>=0.8.2",
+    "duckduckgo-search>=8.1.1",
+    "ddgs>=9.11.2",
+]
+
+# --------------------------------------------------
+# Optional dependencies
+# --------------------------------------------------
+[project.optional-dependencies]
+
+ml = [
+    "torch>=2.1",
+    "transformers>=4.36",
+    "sentencepiece",
+    "datasets>=2.16",          # 🔥 required at inference
+]
+
+notebook = [
+    "tqdm>=4.66",
+    "ipywidgets",
+    "jupyter",
+]
+
+nuts = [
+    "geopandas>=0.13",
+    "shapely>=2.0",
+]
+
+dev = [
+    "pytest",
+]
+
+# --------------------------------------------------
+# Packaging
+# --------------------------------------------------
+[tool.setuptools.packages.find]
+include = ["affilgood", "affilgood.*"]
+
+[tool.setuptools.package-data]
+"affilgood.components.data" = [
+    "*.tsv",
+    "*.csv",
+    "nuts/*.shp",
+    "nuts/*.dbf",
+    "nuts/*.shx",
+    "nuts/*.prj",
+    "nuts/*.cpg",
+]
