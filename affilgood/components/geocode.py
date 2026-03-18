@@ -60,7 +60,6 @@ class CountryInfo(NamedTuple):
     continent: str
     un_region: str
 
-
 def _load_country_data(
     data_dir: Path,
 ) -> Tuple[Dict[str, str], Dict[str, CountryInfo]]:
@@ -468,16 +467,11 @@ class Geocoder:
     ):
         self.verbose = verbose
 
-        # After
         resolved_data_dir = Path(data_dir) if data_dir else _get_pkg_data_dir()
-
-        # Fall back to cache dir if country_data.tsv not found in package dir
-        if not (resolved_data_dir / "country_data.tsv").exists():
-            from affilgood.data_manager import get_data_dir
-            resolved_data_dir = get_data_dir()
+        resolved_cache_dir = Path(cache_dir) if cache_dir else _get_cache_dir()
 
         self._name_to_short, self._short_to_info = _load_country_data(resolved_data_dir)
-
+        
         if verbose:
             n = len(self._name_to_short)
             m = len(self._short_to_info)
