@@ -283,25 +283,25 @@ ag = AffilGood(
 ### Full configuration (all features)
 
 ```python
+
 ag = AffilGood(
+    enable_entity_linking=True,
     device="cpu",
+    linking_config={
+        "data_dir": str(data_dir),
+        "encoder_model": "SIRIS-Lab/affilgood-dense-retriever",
+        "threshold": 0.038,
+        "reranker": "cross_encoder",
+        "reranker_model": "cometadata/jina-reranker-v2-multilingual-affiliations-large",
+        "reranker_threshold": 0.038,
+        "llm_judge": "Qwen/Qwen2.5-1.5B-Instruct",
+        "llm_threshold": 0.3,
+    },
     enable_language_detect=True,
     language_config={"method": "combined_langdetect"},
-    translate_config={
-        "model_name": "Qwen/Qwen2.5-0.5B-Instruct",
-        "device": "cpu",
-    },
-    enable_entity_linking=True,
-    linking_config={
-        "encoder_model": "SIRIS-Lab/affilgood-dense-retriever",
-        "reranker": None,
-        "threshold": 0.5,
-        "llm_judge": "Qwen/Qwen2.5-3B-Instruct",
-        "llm_threshold": 0.7,
-    },
+    verbose=True,
     enable_normalization=True,
     add_nuts=True,
-    verbose=True,
 )
 ```
 
