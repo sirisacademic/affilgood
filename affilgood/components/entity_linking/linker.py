@@ -270,7 +270,9 @@ class EntityLinker:
         self.llm_threshold = llm_threshold
 
         if data_dir is None:
-            data_dir = Path(__file__).parent / "data"
+            from affilgood.data_manager import ensure_data
+            data_dir = ensure_data()
+
         self._data_dir = Path(data_dir)
 
         # --- 1. Load registry + build direct matcher ---

@@ -20,6 +20,7 @@ dependencies = [
     "einops>=0.8.2",
     "duckduckgo-search>=8.1.1",
     "ddgs>=9.11.2",
+    "filelock"
 ]
 
 # --------------------------------------------------
@@ -65,3 +66,6 @@ include = ["affilgood", "affilgood.*"]
     "nuts/*.prj",
     "nuts/*.cpg",
 ]
+
+[project.scripts]
+affilgood-download = "affilgood.data_manager:cli_download"

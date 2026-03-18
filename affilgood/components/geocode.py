@@ -25,6 +25,7 @@ import sqlite3
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, NamedTuple
+from affilgood.data_manager import get_data_dir   # add this
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,19 @@ logger = logging.getLogger(__name__)
 # Data directory resolution
 # ------------------------------------------------------------------
 
-def _get_data_dir() -> Path:
+# def _get_data_dir() -> Path:
+#     return Path(__file__).parent / "data"
+
+# Static package data (country_data.tsv, NUTS shapefiles)
+# These ship with the package and never change at runtime.
+def _get_pkg_data_dir() -> Path:
     return Path(__file__).parent / "data"
+
+
+# Runtime cache directory (geocache.sqlite)
+# Lives in ~/.cache/affilgood/vX.Y.Z/ alongside the downloaded data files.
+def _get_cache_dir() -> Path:
+    return get_data_dir()
 
 
 # ------------------------------------------------------------------
@@ -52,49 +64,49 @@ class CountryInfo(NamedTuple):
 def _load_country_data(
     data_dir: Path,
 ) -> Tuple[Dict[str, str], Dict[str, CountryInfo]]:
-    """
-    Load country mappings from country_data.tsv.
+    # Try provided dir first, then cache dir as fallback
+    from affilgood.data_manager import get_data_dir
+    search_dirs = [data_dir, get_data_dir()]
 
-    Builds two lookups:
-    - name_to_short: maps any variant (name_official, name_short, ISO2, ISO3)
-                     → name_short  (e.g. "Kingdom of Spain" → "Spain")
-    - short_to_info: maps name_short → CountryInfo with iso3, continent, un_region
+    tsv_path = None
+    for d in search_dirs:
+        candidate = d / "country_data.tsv"
+        if candidate.exists():
+            tsv_path = candidate
+            break
 
-    Returns (name_to_short, short_to_info)
-    """
     name_to_short: Dict[str, str] = {}
     short_to_info: Dict[str, CountryInfo] = {}
 
-    tsv_path = data_dir / "country_data.tsv"
-    if tsv_path.exists():
-        try:
-            with open(tsv_path, "r", encoding="utf-8") as f:
-                for row in csv.DictReader(f, delimiter="\t"):
-                    short = row.get("name_short", "").strip()
-                    official = row.get("name_official", "").strip()
-                    iso3 = row.get("ISO3", "").strip()
-                    iso2 = row.get("ISO2", "").strip()
-                    continent = row.get("continent", "").strip()
-                    un_region = row.get("UNregion", "").strip()
+    if tsv_path is None:
+        return name_to_short, short_to_info
 
-                    if not short:
-                        continue
+    try:
+        with open(tsv_path, "r", encoding="utf-8") as f:
+            for row in csv.DictReader(f, delimiter="\t"):
+                short = row.get("name_short", "").strip()
+                official = row.get("name_official", "").strip()
+                iso3 = row.get("ISO3", "").strip()
+                iso2 = row.get("ISO2", "").strip()
+                continent = row.get("continent", "").strip()
+                un_region = row.get("UNregion", "").strip()
 
-                    # Map all variants → name_short (first entry wins)
-                    for key in (short, official, iso3, iso2):
-                        if key:
-                            name_to_short.setdefault(key, short)
+                if not short:
+                    continue
 
-                    # Full metadata keyed by name_short
-                    if short not in short_to_info:
-                        short_to_info[short] = CountryInfo(
-                            name_short=short,
-                            iso3=iso3,
-                            continent=continent,
-                            un_region=un_region,
-                        )
-        except Exception as e:
-            logger.warning("Failed to load country_data.tsv: %s", e)
+                for key in (short, official, iso3, iso2):
+                    if key:
+                        name_to_short.setdefault(key, short)
+
+                if short not in short_to_info:
+                    short_to_info[short] = CountryInfo(
+                        name_short=short,
+                        iso3=iso3,
+                        continent=continent,
+                        un_region=un_region,
+                    )
+    except Exception as e:
+        logger.warning("Failed to load country_data.tsv: %s", e)
 
     return name_to_short, short_to_info
 
@@ -456,11 +468,14 @@ class Geocoder:
     ):
         self.verbose = verbose
 
-        pkg_data_dir = _get_data_dir()
-        resolved_data_dir = Path(data_dir) if data_dir else pkg_data_dir
-        resolved_cache_dir = Path(cache_dir) if cache_dir else pkg_data_dir
+        # After
+        resolved_data_dir = Path(data_dir) if data_dir else _get_pkg_data_dir()
 
-        # Load country mappings
+        # Fall back to cache dir if country_data.tsv not found in package dir
+        if not (resolved_data_dir / "country_data.tsv").exists():
+            from affilgood.data_manager import get_data_dir
+            resolved_data_dir = get_data_dir()
+
         self._name_to_short, self._short_to_info = _load_country_data(resolved_data_dir)
 
         if verbose:
@@ -515,11 +530,12 @@ class Geocoder:
 
     @staticmethod
     def _find_nuts_shapefile(data_dir: Path) -> Optional[str]:
+        from affilgood.data_manager import get_data_dir
+        cache_nuts = get_data_dir() / "nuts"
         candidates = [
-            data_dir / "nuts" / "NUTS_RG_01M_2021_4326.shp",
-            data_dir / "nuts" / "NUTS_RG_01M_2021_4326_shp.shp",
+            cache_nuts / "NUTS_RG_01M_2021_4326.shp",          # cache dir ← first
+            data_dir / "nuts" / "NUTS_RG_01M_2021_4326.shp",   # package dir
             data_dir / "NUTS_RG_01M_2021_4326.shp",
-            data_dir / "NUTS_RG_01M_2021_4326_shp" / "NUTS_RG_01M_2021_4326.shp",
         ]
         for path in candidates:
             if path.exists():

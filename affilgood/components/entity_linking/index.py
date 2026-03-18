@@ -31,6 +31,8 @@ import numpy as np
 
 from .registry import RegistryRecord
 
+from affilgood.data_manager import get_data_dir
+
 logger = logging.getLogger(__name__)
 
 # Default encoder: SIRIS-Lab affilgood dense retriever (1024-dim, XLM-RoBERTa)
@@ -172,15 +174,14 @@ class IndexBuilder:
 
     def __init__(
         self,
-        data_dir: Path,
+        data_dir: Optional[Path] = None,
         *,
         encoder_model: Optional[str] = None,
         device: Optional[str] = None,
         batch_size: int = 256,
         verbose: bool = False,
     ):
-        self.data_dir = Path(data_dir)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.data_dir = Path(data_dir) if data_dir else get_data_dir() / "ror"
         self.encoder_model_name = encoder_model or DEFAULT_ENCODER
         self.device = device
         self.batch_size = batch_size
@@ -520,11 +521,9 @@ class DenseIndex:
         return self.record_map.get(record_id)
 
     @classmethod
-    def load(cls, index_dir: Path) -> "DenseIndex":
-        """Load a pre-built index from disk."""
+    def load(cls, index_dir: Optional[Path] = None) -> "DenseIndex":
         import faiss
-
-        index_dir = Path(index_dir)
+        index_dir = Path(index_dir) if index_dir else get_data_dir() / "ror" / "dense"
 
         index = faiss.read_index(str(index_dir / "faiss.index"))
         record_ids = json.loads((index_dir / "faiss_ids.json").read_text())

@@ -50,10 +50,45 @@ AffilGood can:
 ```bash
 git clone https://github.com/sirisacademic/affilgood.git
 cd affilgood
-pip install -e .
+pip install -e ".[all]"
 ```
 
 > 🐍 Python ≥ 3.10 recommended
+
+### Download data files
+
+AffilGood requires pre-built data files (ROR registry, FAISS index, NUTS shapefiles) that are too large for the git repository. They are hosted as a GitHub Release asset.
+
+**Automatic (recommended):**
+
+```bash
+python setup_data.py
+```
+
+**Manual:**
+
+1. Download `affilgood-data-v2.0.0.zip` from [HuggingFace](https://huggingface.co/datasets/SIRIS-Lab/affilgood-data)
+2. Extract into the repo root:
+
+```bash
+unzip affilgood-data-v2.0.0.zip -d .
+```
+
+**Verify:**
+
+```bash
+python setup_data.py  # will report ✓ for each file if already extracted
+```
+
+The data files include:
+
+| File | Size | Description |
+|---|---|---|
+| `ror_records.jsonl` | ~80 MB | ROR registry (active + inactive records) |
+| `faiss.index` | ~200 MB | Pre-built HNSW index (1024-dim, inner product) |
+| `faiss_ids.json` | ~10 MB | Record IDs for each index vector |
+| `faiss_texts.json` | ~40 MB | Indexed text variants |
+| `NUTS shapefiles` | ~5 MB | EU NUTS region boundaries |
 
 ---
 

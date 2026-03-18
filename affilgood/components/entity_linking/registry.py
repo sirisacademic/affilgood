@@ -111,9 +111,8 @@ class RegistryManager:
     ):
         self.verbose = verbose
 
-        if data_dir is None:
-            data_dir = Path(__file__).parent / "data"
-        self.data_dir = Path(data_dir)
+        from affilgood.data_manager import ensure_data  # ← always ensure data first
+        self.data_dir = ensure_data(data_dir=Path(data_dir) if data_dir else None)
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------

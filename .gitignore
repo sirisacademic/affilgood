@@ -85,6 +85,8 @@ affenv/
 wikidata_cache/
 build/
 
+
+
 *.sqlite
 
 generate_wikidata_index.py
@@ -99,3 +101,45 @@ scripts/
 eval/
 
 tests/
+
+*.zip
+
+ 
+# ── Data files (downloaded via setup_data.py) ──
+# Hosted on HuggingFace: SIRIS-Lab/affilgood-data
+affilgood/components/entity_linking/data/ror/
+affilgood/components/data/nuts/
+affilgood/components/data/*.sqlite
+**/data/ror/
+**/data/nuts/
+ 
+# S2AFF data
+affilgood/entity_linking/S2AFF/data
+ 
+# Index files
+whoosh_indices/
+hnsw_indices/
+*.index
+*.faiss
+ 
+# Cache files
+*.sqlite
+wikidata_cache/
+ 
+# Backup files
+*BKP*
+*bkp*
+ 
+# Large binary files
+*.bin
+*.pkl
+*.parquet
+*.jsonl
+ 
+# ── Not tracked ──
+old_codes/
+notebooks/
+scripts/
+eval/
+tests/
+generate_wikidata_index.py
